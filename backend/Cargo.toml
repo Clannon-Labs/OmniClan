@@ -1,0 +1,28 @@
+[workspace]
+resolver = "3"
+
+# All our crates
+members = [
+    "crates/api",
+]
+
+# What to run if i did cargo run from backend root
+default-members = [
+    "crates/api",
+]
+
+[workspace.package]
+edition = "2024"
+
+[workspace.dependencies]
+tokio = { version = "1.53.1", features = ["full"] }
+axum = "0.8.9"
+anyhow = "1.0.104"
+
+# foundation = { path = "crates/foundation" }
+# auth = { path = "crates/auth" }
+# email = { path = "crates/email" }
+
+# I dont think any crate should depend on api, so we probably dont
+# need this.
+# api = { path = "crates/api" }
