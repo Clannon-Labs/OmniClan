@@ -18,6 +18,14 @@ edition = "2024"
 tokio = { version = "1.53.1", features = ["full"] }
 axum = "0.8.9"
 anyhow = "1.0.104"
+reqwest = {
+    version = "0.12",
+    default-features = false,
+    features = ["rustls-tls", "json"]
+}
+serde = { version = "1.0.229", features = ["derive"]}
+serde_json = "1.0.151"
+
 
 # foundation = { path = "crates/foundation" }
 # auth = { path = "crates/auth" }
@@ -26,3 +34,9 @@ anyhow = "1.0.104"
 # I dont think any crate should depend on api, so we probably dont
 # need this.
 # api = { path = "crates/api" }
+
+# We dont need it in root cargo.toml if backend/ is not a package,
+# which it is not till now
+# [dev-dependencies]
+# anyhow = "1.0.104"
+# httpc-test = "0.16.4"
