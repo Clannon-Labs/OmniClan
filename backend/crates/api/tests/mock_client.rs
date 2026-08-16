@@ -6,24 +6,51 @@ use anyhow::Result;
 async fn test_client() -> Result<()> {
     let client = reqwest::Client::new();
 
-    let response = client
+    // ? is only when i want to explicitly set what variable
+    // will get what value, which can be extracted by the server
+    // by .name, .message etc (variables of a struct)
+    let response1 = client
         .get("http://localhost:8080/greet?name=Cybro&message=Lmao ")
         .send()
         .await?;
 
-    println!("{:?}", response);
-    // println!("status: {}", response.status());
-    println!("body: {}", response.text().await?);
+    // a value placed directly after / is a path parameter
+    // server can define it as path/{parameter} and extract
+    // with Path(parameter)
+    let response2 = client
+        .get("http://localhost:8080/greet2/cybro")
+        .send()
+        .await?;
 
-    // Response { 
-        // url: "http://localhost:8080/greet?name=Cybro&message=Lmao",
-        // status: 200,
-        // headers: {
-        // "content-type": "text/html; charset=utf-8",
-        // "content-length": "25",
-        // "date": "Fri, 14 Aug 2026 04:04:37 GMT"
+    println!("From response1:");
+    println!("{:?}", response1);
+    // println!("status: {}", response.status());
+    println!("body: {}", response1.text().await?);
+
+    println!("\nFrom response2:");
+    println!("{:?}", response2);
+    println!("Body: {}", response2.text().await?);
+
+    
+    // From response1:
+    // Response {
+    // url: "http://localhost:8080/greet?name=Cybro&message=Lmao",
+    // status: 200,
+    // headers: {
+    // "content-type": "text/html; charset=utf-8",
+    // "content-length": "25", "date": "Sun, 16 Aug 2026 13:28:58 GMT"
     // }}
     // body: Lmao<strong>Cybro<strong>
-
+    
+    // From response2:
+    // Response { 
+    // url: "http://localhost:8080/greet2/cybro",
+    // status: 200,
+    // headers: {
+    // "content-type": "text/html; charset=utf-8",
+    // "content-length": "41", "date": "Sun, 16 Aug 2026 13:28:58 GMT"
+    // }}
+    // Body: I am using your name 'cybro' to greet you
+    
     Ok(())
 }

@@ -2,7 +2,10 @@
 
 use axum::{
     Router,
-    {extract::Query},
+    {extract::{
+        Query,
+        Path,
+    }},
     {routing::get},
     {response::{
         Html,
@@ -20,10 +23,9 @@ struct GreetParams {
 
 #[tokio::main]
 async fn main() {
-    let greet = Router::new().route(
-        "/greet",
-        get(handle_greet),
-    );
+    let greet = Router::new()
+        .route("/greet",get(handle_greet))
+        .route("/greet2/{name}", get(handle_greet_with_name));
 
     // start of server
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
@@ -44,5 +46,10 @@ async fn handle_greet(Query(params): Query<GreetParams>) -> impl IntoResponse {
     let message = params.message.as_deref().unwrap_or("Hello, ");
     
     Html(format!("{message}<strong>{name}<strong>"))
-    
+}
+
+async fn handle_greet_with_name(Path(name): Path<String>) -> impl IntoResponse {
+    println!("-->> {:<12} - Inside greet handler 2 - {name:?}", "HANDLER");
+
+    Html(format!("I am using your name '{name}' to greet you"))
 }
