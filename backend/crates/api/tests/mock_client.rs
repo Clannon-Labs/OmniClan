@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use anyhow::Result;
+use serde_json::json;
 
 #[tokio::test]
 async fn test_client() -> Result<()> {
@@ -27,6 +28,14 @@ async fn test_client() -> Result<()> {
         .get(format!("{base_url}/service_file.html"))
         .send()
         .await?;
+
+    let login_response = client.post(format!("{base_url}/login"))
+        .json(&json!({
+            "username": "cybro",
+            "password": "cybro13"
+        }))
+        .send()
+        .await?;
     
     println!("From response1:");
     println!("{:?}", response1);
@@ -40,6 +49,10 @@ async fn test_client() -> Result<()> {
     println!("\nFrom response3");
     println!("{:?}", response3);
     println!("Body: {}", response3.text().await?);
+
+    println!("\nFrom login:");
+    println!("{:?}", login_response);
+    println!("Body: {}", login_response.text().await?);
     
     // From response1:
     // Response {

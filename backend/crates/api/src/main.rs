@@ -19,6 +19,11 @@ use tower_http::services::ServeDir;
 use serde::Deserialize;
 use serde_json;
 
+mod error;
+pub use self::error::{Error, Result};
+
+mod web;
+
 #[derive(Debug, Deserialize)]
 struct GreetParams {
     name: Option<String>,
@@ -29,6 +34,7 @@ struct GreetParams {
 async fn main() {
     let greet = Router::new()
         .merge(greet_router())
+        .merge(web::login::login_route())
         .fallback_service(ServeDir::new("./crates/api/services"));
 
     // start of server
