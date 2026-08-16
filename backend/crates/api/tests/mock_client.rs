@@ -5,12 +5,13 @@ use anyhow::Result;
 #[tokio::test]
 async fn test_client() -> Result<()> {
     let client = reqwest::Client::new();
+    let base_url = "http://localhost:8080";
 
     // ? is only when i want to explicitly set what variable
     // will get what value, which can be extracted by the server
     // by .name, .message etc (variables of a struct)
     let response1 = client
-        .get("http://localhost:8080/greet?name=Cybro&message=Lmao ")
+        .get(format!("{base_url}/greet?name=Cybro&message=Lmao "))
         .send()
         .await?;
 
@@ -18,10 +19,15 @@ async fn test_client() -> Result<()> {
     // server can define it as path/{parameter} and extract
     // with Path(parameter)
     let response2 = client
-        .get("http://localhost:8080/greet2/cybro")
+        .get(format!("{base_url}/greet2/cybro"))
         .send()
         .await?;
 
+    let response3 = client
+        .get(format!("{base_url}/service_file.html"))
+        .send()
+        .await?;
+    
     println!("From response1:");
     println!("{:?}", response1);
     // println!("status: {}", response.status());
@@ -31,6 +37,9 @@ async fn test_client() -> Result<()> {
     println!("{:?}", response2);
     println!("Body: {}", response2.text().await?);
 
+    println!("\nFrom response3");
+    println!("{:?}", response3);
+    println!("Body: {}", response3.text().await?);
     
     // From response1:
     // Response {
