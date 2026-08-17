@@ -18,7 +18,7 @@ pub fn login_route() -> Router {
 }
 
 async fn login(payload:Json<LoginPayload>) -> Result<Json<Value>> {
-    println!("--> We are inside login handler!");
+    println!("--> LOGIN HANDLER --> We are inside login handler!");
 
     // TODO: Implement real database and auth logic here
     if payload.username != "cybro" || payload.password != "cybro123"{

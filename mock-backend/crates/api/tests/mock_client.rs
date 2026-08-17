@@ -32,7 +32,7 @@ async fn test_client() -> Result<()> {
     let login_response = client.post(format!("{base_url}/login"))
         .json(&json!({
             "username": "cybro",
-            "password": "cybro13"
+            "password": "cybro123"
         }))
         .send()
         .await?;
