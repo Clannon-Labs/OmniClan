@@ -52,12 +52,33 @@ async fn handle_media(request: Request) -> (StatusCode, String) {
     let body = request.into_body();
     let mut stream = body.into_data_stream();
 
+    const MAX_UPLOAD_BYTES: u64 = 1024;
+    
     let mut total_bytes: u64 = 0;
 
-    while let Some(chunk_result) = stream.next().await{
+    while let Some(chunk_result) = stream.next().await {
         match chunk_result {
-            Ok(chunk) => {
-                total_bytes += chunk.len() as u64
+            Ok(chunk) => {                
+                match total_bytes.checked_add(chunk.len() as u64) {
+                    Some(total) => {
+                        if total <= MAX_UPLOAD_BYTES {
+                            total_bytes += chunk.len() as u64
+                        } else {
+                            let status_code = StatusCode::PAYLOAD_TOO_LARGE;
+                            return (
+                                status_code,
+                                format!("{status_code}: Payload limit exceeded!\n")
+                            )
+                        }
+                    },
+                    None => {
+                        let status_code = StatusCode::PAYLOAD_TOO_LARGE;
+                        return (
+                            status_code,
+                            format!("{status_code}: Payload limit exceeded!\n")
+                        ) 
+                    }
+                }
             }
             Err(err) => {
                 return (
