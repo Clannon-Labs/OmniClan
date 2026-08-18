@@ -13,20 +13,21 @@ const MAX_UPLOAD_BYTES: u64 = 1024;
 
 pub async fn handle_media_upload(request: Request) -> (StatusCode, String) {
     let ok = StatusCode::OK;
-    match handle_media_header(&request) {
-        Ok(_) => {},
-        Err(err) => return err,
+    
+    if let Err(err) = handle_media_header(&request) {
+        return err;
     }
 
-    match handle_media_body(request).await {
-        Ok(bytes) => {
-            (
-                ok,
-                format!("{ok}: Received {bytes} bytes!\n")
-            )
-        },
-        Err(err) => return err
-    }
+    let bytes = match handle_media_body(request).await {
+        Ok(bytes) => bytes,
+        Err(err) => return err,
+    };
+
+    (
+        ok,
+        format!("{ok}: Received {bytes} bytes!\n")
+    )
+    
 }
 
 fn handle_media_header(request: &Request) -> Result<(), (StatusCode, String)> {
