@@ -9,7 +9,6 @@ use axum::{
 };
 use futures_util::StreamExt;
 use tokio::{
-    fs::{self, File},
     io::AsyncWriteExt
 };
 
@@ -20,12 +19,19 @@ pub async fn handle_media_upload(request: Request) -> (StatusCode, String) {
     let ok = StatusCode::OK;
     
     if let Err(err) = handle_media_header(&request) {
+        // println!("{:?}", err);
         return err;
     }
 
     let (bytes, filepath) = match handle_media_body(request).await {
-        Ok((bytes, filepath)) => (bytes, filepath),
-        Err(err) => return err,
+        Ok((bytes, filepath)) =>{
+            // println!("Bytes: {}, Filepath: {}", bytes, filepath);
+             (bytes, filepath)
+        },
+        Err(err) => {
+            // println!("{:?}", err);
+            return err
+        },
     };
 
     (
@@ -86,8 +92,10 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
     let mut total_bytes: u64 = 0;
 
     // relative to where code is ran from
-    let mut path = std::path::PathBuf::from("./uploads"); 
-    match fs::create_dir_all(&path).await {
+    let mut path = std::path::PathBuf::from("./uploads/media"); 
+    let mut temp_path = std::path::PathBuf::from("./uploads/temp");
+    
+    match tokio::fs::create_dir_all(&temp_path).await {
         Ok(()) => {},
         Err(_) => {
             return Err((
@@ -100,9 +108,11 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
     // will have .part, and .final after it's fully verified
     // and written down
     let filename = uuid::Uuid::now_v7();
-    path.push(format!("{filename}.part"));
 
-    let mut file = match File::create(&path).await {
+    // create file in temp directory first
+    temp_path.push(format!("{filename}.part"));
+
+    let mut file = match tokio::fs::File::create(&temp_path).await {
         Ok(f) => f,
         _ => {
             let filepath = path.display();
@@ -123,27 +133,76 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
                         match file.write_all(&chunk).await {
                             Ok(_) => {},
                             _ => {
-                                let filepath = path.display();
-                                return Err((
-                                    internal_server_error,
-                                    format!("{internal_server_error}: Couldn't write bytes to file '{filepath}'!\n")
-                                ))
+                                match tokio::fs::remove_file(&temp_path).await {
+                                    Ok(_) => {
+                                        let filepath = path.display();
+                                        return Err((
+                                            internal_server_error,
+                                            format!(
+                                                "{internal_server_error}: Couldn't write bytes to file '{filepath}'!\n
+                                                But removal of file from temp directory is successful!\n"
+                                            )
+                                        ))
+                                    },
+                                    Err(_) => {
+                                        let filepath = path.display();
+                                        return Err((
+                                            internal_server_error,
+                                            format!(
+                                                "{internal_server_error}: Couldn't write bytes to file '{filepath}'!\n
+                                                Also couldn't remove file from temp directory!\n"
+                                            )
+                                        ))
+                                    }
+                                }
                             }
                         }
                     },
                     _ => {
-                        return Err((
-                            payload_too_large,
-                            format!("{payload_too_large}: Payload limit exceeded!\n")
-                        ))
+                        match tokio::fs::remove_file(&temp_path).await {
+                            Ok(_) => {
+                                return Err((
+                                    payload_too_large,
+                                    format!(
+                                        "{payload_too_large}: Payload limit exceeded!\n
+                                        But removal of file from temp directory was successful!\n"
+                                    )
+                                ))
+                            },
+                            _ => {
+                                return Err((
+                                    payload_too_large,
+                                    format!(
+                                        "{payload_too_large}: Payload limit exceeded!\n
+                                        Also couldn't remove file from temp directory!\n"
+                                    )
+                                ))
+                            }
+                        }
                     }
                 }
             },
             Err(_) => {
-                return Err((
-                    bad_request,
-                    format!("{bad_request}: Invalid payload body!\n")
-                ))
+                match tokio::fs::remove_file(&temp_path).await {
+                    Ok(_) => {
+                        return Err((
+                            bad_request,
+                            format!(
+                                "{bad_request}: Invalid payload body!\n
+                                But removal of file from temp directory was successful\n"
+                            )
+                        ))
+                    },
+                    _ => {
+                        return Err((
+                            bad_request,
+                            format!(
+                                "{bad_request}: Invalid payload body!\n
+                                Also couldn't remove file from temp directory\n"
+                            )
+                        ))
+                    }
+                }
             }
         }
     }
@@ -151,31 +210,59 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
     match file.flush().await {
         Ok(()) => {
             // all bytes are fully written,
-            // so change the name to .final
+            // so change the name to .final in memory,
+            // which will be changed to .final in disk upon move
             // 
             // media handler doesn't automatically sort out the
-            // stored files yet
-            let old_path = path.clone();
+            // files, it's the job of the db.
+            // 
+            // Media handler just tags file as .final as confirmed
+            // and makes it a lil easier by making them indexable directly
+            // by their name, but DB's created_at is still authoritative
             path.set_file_name(format!("{filename}.final"));
 
-            match tokio::fs::rename(&old_path, &path).await {
-                Ok(_) => Ok((
-                    total_bytes,
-                    path.display().to_string()
-                )),
+            // Move the file to /media directory
+            match tokio::fs::rename(&temp_path, &path).await {
+                Ok(_) => {
+                    // confirmed the file is moved into /media
+                    // directory, so we dont need to try to
+                    // delete it from /temp directory
+                    Ok((
+                        total_bytes,
+                        path.display().to_string()
+                    ))
+                },
                 Err(_) => {
+                    let temp = temp_path.display().to_string();
                     return Err((
                         internal_server_error,
-                        format!("{internal_server_error}: Couldn't finalize the name of the file!\n")
+                        format!("{internal_server_error}: Couldn't move file '{temp}' into permanent directory!\n")
                     ))
                 }
             }
         },
         Err(e) => {
-            return Err((
-                internal_server_error,
-                format!("{internal_server_error}: Error '{e}' while flushing bytes into file!\n")
-            ))
+            let temp = temp_path.display().to_string();
+            match tokio::fs::remove_file(&temp_path).await{
+                Ok(_) => {
+                    return Err((
+                        internal_server_error,
+                        format!(
+                            "{internal_server_error}: Error '{e}' while flushing bytes into file!\n
+                            But removal of file {temp} successful!\n"
+                        )
+                    ))
+                },
+                Err(_) => {
+                    return Err((
+                        internal_server_error,
+                        format!(
+                            "{internal_server_error}: Error '{e}' while flushing bytes into file!\n
+                            Error occured also while removing the file {temp}!\n"
+                        )
+                    ))
+                }
+            }
         }
     }
 }
