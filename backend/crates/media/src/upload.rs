@@ -115,7 +115,7 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
     let mut file = match tokio::fs::File::create(&temp_path).await {
         Ok(f) => f,
         _ => {
-            let filepath = path.display();
+            let filepath = temp_path.display();
             return Err((
                 internal_server_error,
                 format!("{internal_server_error}: Couldn't create file '{filepath}'!\n")
@@ -135,7 +135,7 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
                             _ => {
                                 match tokio::fs::remove_file(&temp_path).await {
                                     Ok(_) => {
-                                        let filepath = path.display();
+                                        let filepath = temp_path.display();
                                         return Err((
                                             internal_server_error,
                                             format!(
@@ -145,7 +145,7 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
                                         ))
                                     },
                                     Err(_) => {
-                                        let filepath = path.display();
+                                        let filepath = temp_path.display();
                                         return Err((
                                             internal_server_error,
                                             format!(
@@ -219,8 +219,19 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
             // Media handler just tags file as .final as confirmed
             // and makes it a lil easier by making them indexable directly
             // by their name, but DB's created_at is still authoritative
-            path.set_file_name(format!("{filename}.final"));
 
+            match tokio::fs::create_dir_all(&path).await {
+                Ok(()) => {},
+                Err(_) => {
+                    return Err((
+                        internal_server_error,
+                        format!("{internal_server_error}: Couldn't create the required directories!\n")
+                    ))
+                }
+            }
+
+            path.push(format!("{filename}.final"));
+            
             // Move the file to /media directory
             match tokio::fs::rename(&temp_path, &path).await {
                 Ok(_) => {
