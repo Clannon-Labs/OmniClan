@@ -17,5 +17,6 @@ edition = "2024"
 tokio = { version = "1.53.1", features = ["full"] }
 axum = "0.8.9"
 futures-util = "0.3.34"
+uuid = { version = "1.24.1", features = ["v7"] }
 
 media = { path = "crates/media" }

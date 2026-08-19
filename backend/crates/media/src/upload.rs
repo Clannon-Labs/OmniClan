@@ -96,7 +96,11 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
             ))
         }
     }
-    path.push("filename.part");
+    // until the file is fully processed, its name
+    // will have .part, and .final after it's fully verified
+    // and written down
+    let filename = uuid::Uuid::now_v7();
+    path.push(format!("{filename}.part"));
 
     let mut file = match File::create(&path).await {
         Ok(f) => f,
@@ -146,8 +150,13 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
 
     match file.flush().await {
         Ok(()) => {
+            // all bytes are fully written,
+            // so change the name to .final
+            // 
+            // media handler doesn't automatically sort out the
+            // stored files yet
             let old_path = path.clone();
-            path.set_file_name("filename.final");
+            path.set_file_name(format!("{filename}.final"));
 
             match tokio::fs::rename(&old_path, &path).await {
                 Ok(_) => Ok((
