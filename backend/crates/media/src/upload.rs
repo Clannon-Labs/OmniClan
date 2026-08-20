@@ -95,15 +95,7 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
     let mut path = std::path::PathBuf::from("./uploads/media"); 
     let mut temp_path = std::path::PathBuf::from("./uploads/temp");
     
-    match tokio::fs::create_dir_all(&temp_path).await {
-        Ok(()) => {},
-        Err(_) => {
-            return Err((
-                internal_server_error,
-                format!("{internal_server_error}: Couldn't create the required directories!\n")
-            ))
-        }
-    }
+    create_dir(&temp_path).await?;
     // until the file is fully processed, its name
     // will have .part, and .final after it's fully verified
     // and written down
@@ -112,16 +104,7 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
     // create file in temp directory first
     temp_path.push(format!("{filename}.part"));
 
-    let mut file = match tokio::fs::File::create(&temp_path).await {
-        Ok(f) => f,
-        _ => {
-            let filepath = temp_path.display();
-            return Err((
-                internal_server_error,
-                format!("{internal_server_error}: Couldn't create file '{filepath}'!\n")
-            ))
-        }
-    };
+    let mut file = create_file(&temp_path).await?;
     
     while let Some(stream_chunk) = stream.next().await {
         match stream_chunk {
@@ -133,76 +116,36 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
                         match file.write_all(&chunk).await {
                             Ok(_) => {},
                             _ => {
-                                match tokio::fs::remove_file(&temp_path).await {
-                                    Ok(_) => {
-                                        let filepath = temp_path.display();
-                                        return Err((
-                                            internal_server_error,
-                                            format!(
-                                                "{internal_server_error}: Couldn't write bytes to file '{filepath}'!\n
-                                                But removal of file from temp directory is successful!\n"
-                                            )
-                                        ))
-                                    },
-                                    Err(_) => {
-                                        let filepath = temp_path.display();
-                                        return Err((
-                                            internal_server_error,
-                                            format!(
-                                                "{internal_server_error}: Couldn't write bytes to file '{filepath}'!\n
-                                                Also couldn't remove file from temp directory!\n"
-                                            )
-                                        ))
-                                    }
-                                }
+                                let filepath = temp_path.display();
+                                remove(&temp_path).await?;
+                                return Err((
+                                    internal_server_error,
+                                    format!(
+                                        "{internal_server_error}: Couldn't write bytes to file '{filepath}'!\n"
+                                    )
+                                ));
                             }
                         }
                     },
                     _ => {
-                        match tokio::fs::remove_file(&temp_path).await {
-                            Ok(_) => {
-                                return Err((
-                                    payload_too_large,
-                                    format!(
-                                        "{payload_too_large}: Payload limit exceeded!\n
-                                        But removal of file from temp directory was successful!\n"
-                                    )
-                                ))
-                            },
-                            _ => {
-                                return Err((
-                                    payload_too_large,
-                                    format!(
-                                        "{payload_too_large}: Payload limit exceeded!\n
-                                        Also couldn't remove file from temp directory!\n"
-                                    )
-                                ))
-                            }
-                        }
+                        remove(&temp_path).await?;
+                        return Err((
+                            bad_request,
+                            format!(
+                                "{payload_too_large}: Payload limit exceeded!\n"
+                            )
+                        ));
                     }
                 }
             },
             Err(_) => {
-                match tokio::fs::remove_file(&temp_path).await {
-                    Ok(_) => {
-                        return Err((
-                            bad_request,
-                            format!(
-                                "{bad_request}: Invalid payload body!\n
-                                But removal of file from temp directory was successful\n"
-                            )
-                        ))
-                    },
-                    _ => {
-                        return Err((
-                            bad_request,
-                            format!(
-                                "{bad_request}: Invalid payload body!\n
-                                Also couldn't remove file from temp directory\n"
-                            )
-                        ))
-                    }
-                }
+                remove(&temp_path).await?;
+                return Err((
+                    bad_request,
+                    format!(
+                        "{bad_request}: Invalid payload body!\n"
+                    )
+                ));
             }
         }
     }
@@ -220,15 +163,7 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
             // and makes it a lil easier by making them indexable directly
             // by their name, but DB's created_at is still authoritative
 
-            match tokio::fs::create_dir_all(&path).await {
-                Ok(()) => {},
-                Err(_) => {
-                    return Err((
-                        internal_server_error,
-                        format!("{internal_server_error}: Couldn't create the required directories!\n")
-                    ))
-                }
-            }
+            create_dir(&path).await?;
 
             path.push(format!("{filename}.final"));
             
@@ -253,27 +188,53 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
             }
         },
         Err(e) => {
-            let temp = temp_path.display().to_string();
-            match tokio::fs::remove_file(&temp_path).await{
-                Ok(_) => {
-                    return Err((
-                        internal_server_error,
-                        format!(
-                            "{internal_server_error}: Error '{e}' while flushing bytes into file!\n
-                            But removal of file {temp} successful!\n"
-                        )
-                    ))
-                },
-                Err(_) => {
-                    return Err((
-                        internal_server_error,
-                        format!(
-                            "{internal_server_error}: Error '{e}' while flushing bytes into file!\n
-                            Error occured also while removing the file {temp}!\n"
-                        )
-                    ))
-                }
-            }
+            remove(&temp_path).await?;
+            return Err((
+                internal_server_error,
+                format!(
+                    "{internal_server_error}: Error '{e}' while flushing bytes into file!\n"
+                )
+            ));
         }
     }
 }
+
+async fn create_dir(path: &std::path::PathBuf) -> Result<(), (StatusCode, String)>{
+    let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
+    match tokio::fs::create_dir_all(&path).await {
+        Ok(()) => Ok(()),
+        Err(_) => {
+            return Err((
+                internal_server_error,
+                format!("{internal_server_error}: Couldn't create the required directories!\n")
+            ))
+        }
+    }
+}
+
+async fn create_file(path: &std::path::PathBuf) -> Result<tokio::fs::File, (StatusCode, String)> {
+    let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
+    let filepath = path.display().to_string();
+    match tokio::fs::File::create(&path).await {
+        Ok(f) => Ok(f),
+        Err(_) => return Err((
+            internal_server_error,
+            format!("{internal_server_error}: Couldn't create a directory in {filepath}")
+        ))
+    }
+}
+
+async fn remove(path: &std::path::PathBuf) -> Result<(), (StatusCode, String)>{
+    let filepath = path.display().to_string();
+    let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
+
+    match tokio::fs::remove_file(&path).await {
+        Ok(()) => Ok(()),
+        Err(_) => return Err((
+            internal_server_error,
+            format!("{internal_server_error}: Couldn't remove file '{filepath}'!\n")
+        ))
+    }
+}
+
+//

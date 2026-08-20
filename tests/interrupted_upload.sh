@@ -1,3 +1,4 @@
+# Run it from repo root
 
 MEDIA_FILE="samples/sample1.mp4"
 UPLOAD_URL='http://127.0.0.1:8080/media/upload'
