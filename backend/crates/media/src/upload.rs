@@ -13,7 +13,7 @@ use tokio::{
 };
 
 use std::path::PathBuf;
-
+// Couldn't create the required directories!
 // 3MB limit
 const MAX_UPLOAD_BYTES: u64 = 3*1024*1024; // 1MB = 1,048,576
 
@@ -120,6 +120,7 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
                             _ => {
                                 let filepath = temp_path.display();
                                 remove(&temp_path).await?;
+                                println!("{internal_server_error}: Couldn't write bytes to file '{filepath}'!\n");
                                 return Err((
                                     internal_server_error,
                                     format!(
@@ -152,62 +153,105 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
         }
     }
 
-    match file.flush().await {
-        Ok(()) => {
-            // all bytes are fully written,
-            // so change the name to .final in memory,
-            // which will be changed to .final in disk upon move
-            // 
-            // media handler doesn't automatically sort out the
-            // files, it's the job of the db.
-            // 
-            // Media handler just tags file as .final as confirmed
-            // and makes it a lil easier by making them indexable directly
-            // by their name, but DB's created_at is still authoritative
+    final_check(
+        &mut file,
+        &filename,
+        &temp_path,
+        &mut final_path,
+    ).await?;
 
-            create_dir(&final_path).await?;
-
-            let mut ready_path = temp_path.clone();
-            ready_path.set_file_name(format!("{filename}.ready"));
-            
-            // Rename the file to .ready on /temp directory which
-            // indicates the file is ready to be moved
-            // 
-            // We try a move to /media now, which if failed, can be moved to /media
-            // by the recovery/cleanup crew
-            rename(&temp_path, &ready_path).await?;
-            // first rename is successful!
-            
-            final_path.push(format!("{filename}.final"));
-            rename(&ready_path, &final_path).await?;
-
-            // second rename is also successful!
-            return Ok((
+    return Ok(
+            (
                 total_bytes,
                 final_path.display().to_string()
-            ));
+            )
+    );
+}
+
+// For now, following 6 helper functions are just used inside media body handler function
+async fn final_check(
+    file: &mut tokio::fs::File,
+    filename: &uuid::Uuid,
+    temp_path: &PathBuf,
+    // ready_path: &PathBuf, // no need to give ready path, it will make it on its own with filename
+    final_path: &mut PathBuf,
+) -> Result<(), (StatusCode, String)> {
+    
+    let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
+    let bad_request = StatusCode::BAD_REQUEST;
+    
+    match file.flush().await {
+        Ok(_) => {
+            match file.sync_all().await {
+                Ok(_) => {
+                    // we dont want to keep empty file at all,
+                    // not even in temp directory, we delete if 
+                    // it's empty
+                    if is_empty(&temp_path).await {
+                        remove(&temp_path).await?;
+
+                        // println!("Temporary file is found to be empty");
+                        return Err((
+                            bad_request,
+                            format!("{bad_request}: Temporary file is empty!\n")
+                        ));
+                    }
+
+                    // if it's not empty and written to disk, change it to be .ready to commit it
+                    let mut ready_path = temp_path.clone();
+                    ready_path.set_file_name(format!("{filename}.ready"));
+
+                    rename(temp_path, &ready_path).await?;
+                    
+                    // all bytes are fully written,
+                    // so change the name to .final in memory,
+                    // which will be changed to .final in disk upon move
+                    
+                    // media handler doesn't automatically sort out the
+                    // files, it's the job of the db.
+                    
+                    // Media handler just tags file as .final as confirmed
+                    // and makes it a lil easier by making them indexable directly
+                    // by their name, but DB's created_at is still authoritative
+
+                    create_dir(&final_path).await?;
+                    final_path.push(format!("{filename}.final"));
+
+                    rename(&ready_path, &final_path).await?;
+
+                    return Ok(())
+
+                },
+                Err(e) => {
+                    let temp = temp_path.display().to_string();
+                    println!("{internal_server_error}: Err '{e}' occured while writing file '{temp}' to disk!\n");
+                    return Err((
+                        internal_server_error,
+                        format!("{internal_server_error}: Err '{e}' occured while writing file '{temp}' to disk!\n")
+                    ))
+                }
+            }
         },
         Err(e) => {
-            remove(&temp_path).await?;
+            println!("{internal_server_error}: Err '{e}' occured while flushing bytes from buffer!\n");
             return Err((
                 internal_server_error,
-                format!(
-                    "{internal_server_error}: Error '{e}' while flushing bytes into file!\n"
-                )
-            ));
+                format!("{internal_server_error}: Err '{e}' occured while flushing bytes from buffer!\n")
+            ))
         }
     }
 }
 
-// For now, just following 3 are used in media body handler
 async fn create_dir(path: &PathBuf) -> Result<(), (StatusCode, String)>{
     let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
+    let filepath = path.display().to_string();
     match tokio::fs::create_dir_all(&path).await {
         Ok(()) => Ok(()),
         Err(_) => {
+            println!("{internal_server_error}: Couldn't create the required path '{filepath}'! \n");
             return Err((
                 internal_server_error,
-                format!("{internal_server_error}: Couldn't create the required directories!\n")
+                format!("{internal_server_error}: Couldn't create the required path '{filepath}'!\n")
             ))
         }
     }
@@ -218,10 +262,13 @@ async fn create_file(path: &PathBuf) -> Result<tokio::fs::File, (StatusCode, Str
     let filepath = path.display().to_string();
     match tokio::fs::File::create(&path).await {
         Ok(f) => Ok(f),
-        Err(_) => return Err((
-            internal_server_error,
-            format!("{internal_server_error}: Couldn't create a directory in {filepath}")
-        ))
+        Err(_) => {
+            println!("{internal_server_error}: Couldn't create a directory in {filepath}");
+            return Err((
+                internal_server_error,
+                format!("{internal_server_error}: Couldn't create a directory in {filepath}")
+            ))
+        }
     }
 }
 
@@ -231,22 +278,53 @@ async fn remove(path: &PathBuf) -> Result<(), (StatusCode, String)>{
 
     match tokio::fs::remove_file(&path).await {
         Ok(()) => Ok(()),
-        Err(_) => return Err((
-            internal_server_error,
-            format!("{internal_server_error}: Couldn't remove file '{filepath}'!\n")
-        ))
+        Err(_) => {
+            println!("{internal_server_error}: Couldn't remove file '{filepath}'!\n");
+            return Err((
+                internal_server_error,
+                format!("{internal_server_error}: Couldn't remove file '{filepath}'!\n")
+            ))
+        }
     }
 }
 
 async fn rename(old_path: &PathBuf, new_path: &PathBuf) -> Result<(), (StatusCode, String)> {
+    let bad_request = StatusCode::BAD_REQUEST;
+
+    // To ensure empty or negative files aren't moved
+    if is_empty(&old_path).await {
+        let old = old_path.display().to_string();
+        return Err((
+            bad_request,
+            format!("{bad_request}: File '{old}' is of invalid size!\n")
+        ))
+    }
+        
     let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
+    let old_file_path = old_path.display().to_string();
+    let new_file_path = new_path.display().to_string();
     match tokio::fs::rename(&old_path, &new_path).await {
         Ok(()) => Ok(()),
         Err(e) => {
+            println!("{internal_server_error}: Error '{e}' while renaming file '{old_file_path}' to '{new_file_path}'!\n");
             return Err((
                 internal_server_error,
-                format!("{internal_server_error}: Error '{e}' while renaming file!\n")
+                format!("{internal_server_error}: Error '{e}' while renaming file '{old_file_path}' to '{new_file_path}'!\n")
             ))
+        }
+    }
+}
+
+async fn is_empty(path: &PathBuf) -> bool {
+    // println!("Checking empty file right now");
+    match tokio::fs::metadata(&path).await {
+        Ok(bytes) if bytes.len() <= 0 => {
+            // println!("File is empty");
+            return true
+        },
+        _ => {
+            // println!("File is not empty");
+            return false
         }
     }
 }
