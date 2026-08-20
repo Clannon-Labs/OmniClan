@@ -4,20 +4,13 @@ set -euo pipefail
 TEST_SCRIPT_DIRECTORY=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPOSITORY_ROOT=$(CDPATH= cd -- "$TEST_SCRIPT_DIRECTORY/.." && pwd)
 
-MEDIA_FILE="$REPOSITORY_ROOT/samples/sample2.mp4"
 HEALTH_URL='http://127.0.0.1:8080/health'
 UPLOAD_URL='http://127.0.0.1:8080/media/upload'
 TEMP_DIRECTORY="$REPOSITORY_ROOT/backend/uploads/temp"
 FINAL_DIRECTORY="$REPOSITORY_ROOT/backend/uploads/media"
-HTTP_CODE_FILE=''
+HTTP_CODE_FILE=$(mktemp)
 
-cleanup_test_files() {
-  if test -n "$HTTP_CODE_FILE"; then
-    rm -f -- "$HTTP_CODE_FILE"
-  fi
-}
-
-trap cleanup_test_files EXIT HUP INT TERM
+trap 'rm -f -- "$HTTP_CODE_FILE"' EXIT HUP INT TERM
 
 fail() {
   printf 'FAIL: %s\n' "$1" >&2
@@ -34,17 +27,6 @@ snapshot() {
   fi
 }
 
-new_entries() {
-  before=$1
-  after=$2
-
-  comm -13 \
-    <(printf '%s\n' "$before" | sed '/^$/d') \
-    <(printf '%s\n' "$after" | sed '/^$/d')
-}
-
-test -f "$MEDIA_FILE" || fail "sample file does not exist: $MEDIA_FILE"
-
 if ! curl --silent --show-error --fail --max-time 2 \
   --output /dev/null "$HEALTH_URL"; then
   fail 'server health check failed'
@@ -54,11 +36,9 @@ PARTS_BEFORE=$(snapshot "$TEMP_DIRECTORY" '*.part')
 READY_BEFORE=$(snapshot "$TEMP_DIRECTORY" '*.ready')
 FINALS_BEFORE=$(snapshot "$FINAL_DIRECTORY" '*.final')
 
-HTTP_CODE_FILE=$(mktemp)
-
 if curl --silent --show-error \
-  --header 'Content-Type: video/mp4' \
-  --data-binary @"$MEDIA_FILE" \
+  --request POST \
+  --header 'Content-Length: 0' \
   --output /dev/null \
   --write-out '%{http_code}\n' \
   "$UPLOAD_URL" >"$HTTP_CODE_FILE"; then
@@ -71,23 +51,16 @@ HTTP_CODE=$(tr -d '\r\n' <"$HTTP_CODE_FILE")
 PARTS_AFTER=$(snapshot "$TEMP_DIRECTORY" '*.part')
 READY_AFTER=$(snapshot "$TEMP_DIRECTORY" '*.ready')
 FINALS_AFTER=$(snapshot "$FINAL_DIRECTORY" '*.final')
-NEW_FINAL=$(new_entries "$FINALS_BEFORE" "$FINALS_AFTER")
-NEW_FINAL_COUNT=$(printf '%s\n' "$NEW_FINAL" | sed '/^$/d' | wc -l)
 
 test "$CURL_STATUS" -eq 0 \
   || fail "curl transport failed with status $CURL_STATUS"
-test "$HTTP_CODE" = '200' \
-  || fail "server returned HTTP $HTTP_CODE instead of 200"
+test "$HTTP_CODE" = '400' \
+  || fail "empty upload returned HTTP $HTTP_CODE instead of 400"
 test "$PARTS_AFTER" = "$PARTS_BEFORE" \
-  || fail 'successful upload changed the .part file set'
+  || fail 'empty upload changed the .part file set'
 test "$READY_AFTER" = "$READY_BEFORE" \
-  || fail 'successful upload changed the .ready file set'
-test "$NEW_FINAL_COUNT" -eq 1 \
-  || fail "expected exactly one new .final file, found $NEW_FINAL_COUNT"
+  || fail 'empty upload changed the .ready file set'
+test "$FINALS_AFTER" = "$FINALS_BEFORE" \
+  || fail 'empty upload changed the .final file set'
 
-FINAL_FILE="$FINAL_DIRECTORY/$NEW_FINAL"
-test -f "$FINAL_FILE" || fail "new .final file does not exist: $FINAL_FILE"
-cmp --silent "$MEDIA_FILE" "$FINAL_FILE" \
-  || fail 'committed bytes differ from the uploaded source'
-
-printf 'PASS: successful upload committed one byte-identical file at %s\n' "$FINAL_FILE"
+printf 'PASS: empty upload was rejected without creating stored state\n'
