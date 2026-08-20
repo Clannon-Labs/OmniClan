@@ -12,6 +12,8 @@ use tokio::{
     io::AsyncWriteExt
 };
 
+use std::path::PathBuf;
+
 // 3MB limit
 const MAX_UPLOAD_BYTES: u64 = 3*1024*1024; // 1MB = 1,048,576
 
@@ -92,8 +94,8 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
     let mut total_bytes: u64 = 0;
 
     // relative to where code is ran from
-    let mut path = std::path::PathBuf::from("./uploads/media"); 
-    let mut temp_path = std::path::PathBuf::from("./uploads/temp");
+    let mut final_path = PathBuf::from("./uploads/media"); 
+    let mut temp_path = PathBuf::from("./uploads/temp");
     
     create_dir(&temp_path).await?;
     // until the file is fully processed, its name
@@ -130,7 +132,7 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
                     _ => {
                         remove(&temp_path).await?;
                         return Err((
-                            bad_request,
+                            payload_too_large,
                             format!(
                                 "{payload_too_large}: Payload limit exceeded!\n"
                             )
@@ -163,29 +165,27 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
             // and makes it a lil easier by making them indexable directly
             // by their name, but DB's created_at is still authoritative
 
-            create_dir(&path).await?;
+            create_dir(&final_path).await?;
 
-            path.push(format!("{filename}.final"));
+            let mut ready_path = temp_path.clone();
+            ready_path.set_file_name(format!("{filename}.ready"));
             
-            // Move the file to /media directory
-            match tokio::fs::rename(&temp_path, &path).await {
-                Ok(_) => {
-                    // confirmed the file is moved into /media
-                    // directory, so we dont need to try to
-                    // delete it from /temp directory
-                    Ok((
-                        total_bytes,
-                        path.display().to_string()
-                    ))
-                },
-                Err(_) => {
-                    let temp = temp_path.display().to_string();
-                    return Err((
-                        internal_server_error,
-                        format!("{internal_server_error}: Couldn't move file '{temp}' into permanent directory!\n")
-                    ))
-                }
-            }
+            // Rename the file to .ready on /temp directory which
+            // indicates the file is ready to be moved
+            // 
+            // We try a move to /media now, which if failed, can be moved to /media
+            // by the recovery/cleanup crew
+            rename(&temp_path, &ready_path).await?;
+            // first rename is successful!
+            
+            final_path.push(format!("{filename}.final"));
+            rename(&ready_path, &final_path).await?;
+
+            // second rename is also successful!
+            return Ok((
+                total_bytes,
+                final_path.display().to_string()
+            ));
         },
         Err(e) => {
             remove(&temp_path).await?;
@@ -199,7 +199,8 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
     }
 }
 
-async fn create_dir(path: &std::path::PathBuf) -> Result<(), (StatusCode, String)>{
+// For now, just following 3 are used in media body handler
+async fn create_dir(path: &PathBuf) -> Result<(), (StatusCode, String)>{
     let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
     match tokio::fs::create_dir_all(&path).await {
         Ok(()) => Ok(()),
@@ -212,7 +213,7 @@ async fn create_dir(path: &std::path::PathBuf) -> Result<(), (StatusCode, String
     }
 }
 
-async fn create_file(path: &std::path::PathBuf) -> Result<tokio::fs::File, (StatusCode, String)> {
+async fn create_file(path: &PathBuf) -> Result<tokio::fs::File, (StatusCode, String)> {
     let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
     let filepath = path.display().to_string();
     match tokio::fs::File::create(&path).await {
@@ -224,7 +225,7 @@ async fn create_file(path: &std::path::PathBuf) -> Result<tokio::fs::File, (Stat
     }
 }
 
-async fn remove(path: &std::path::PathBuf) -> Result<(), (StatusCode, String)>{
+async fn remove(path: &PathBuf) -> Result<(), (StatusCode, String)>{
     let filepath = path.display().to_string();
     let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
 
@@ -237,4 +238,15 @@ async fn remove(path: &std::path::PathBuf) -> Result<(), (StatusCode, String)>{
     }
 }
 
-//
+async fn rename(old_path: &PathBuf, new_path: &PathBuf) -> Result<(), (StatusCode, String)> {
+    let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
+    match tokio::fs::rename(&old_path, &new_path).await {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            return Err((
+                internal_server_error,
+                format!("{internal_server_error}: Error '{e}' while renaming file!\n")
+            ))
+        }
+    }
+}
