@@ -171,24 +171,46 @@ run_tests() {
     for script in "${scripts[@]}"; do
         chmod +x "$script"
 
-        output=$("$script" 2>&1)
-        test_status=$?
-        printf "%s\n" "$output"
-
-        pass=$(echo "$output" | grep -ow "PASS" | wc -l)
-        ((PASS_COUNTER += pass))
-        fail=$(echo "$output" | grep -ow "FAIL" | wc -l)
-        ((FAIL_COUNTER += fail))
-
-        if [[ $test_status -ne 0 ]]; then
-            result=1
-            if [[ $fail -eq 0 ]]; then
-                ((FAIL_COUNTER += 1))
+        # Run all the scripts and then cleanup.sh only at last
+        if [[ ! $script == "cleanup.sh" ]]; then 
+            output=$("$script" 2>&1)
+            test_status=$?
+            printf "%s\n" "$output"
+    
+            pass=$(echo "$output" | grep -ow "PASS" | wc -l)
+            ((PASS_COUNTER += pass))
+            fail=$(echo "$output" | grep -ow "FAIL" | wc -l)
+            ((FAIL_COUNTER += fail))
+    
+            if [[ $test_status -ne 0 ]]; then
+                result=1
+                if [[ $fail -eq 0 ]]; then
+                    ((FAIL_COUNTER += 1))
+                fi
+            elif [[ $fail -gt 0 ]]; then
+                result=1
             fi
-        elif [[ $fail -gt 0 ]]; then
-            result=1
         fi
     done
+
+     # Remembering syntax fo this operation..
+     output=$(bash "./cleanup.sh")
+     test_status=$?
+     printf "%s\n" "$output"
+
+     pass=$(echo "$output" | grep -ow "PASS" | wc -l)
+     ((PASS_COUNTER += pass))
+     fail=$(echo "$output" | grep -ow "FAIL" | wc -l)
+     ((FAIL_COUNTER += fail))
+
+     if [[ $test_status -ne 0 ]]; then
+         result=1
+         if [[ $fail -eq 0 ]]; then
+             ((FAIL_COUNTER += 1))
+         fi
+     elif [[ $fail -gt 0 ]]; then
+         result=1
+     fi
 
     cd "$original_dir" || return 1
     return "$result"
