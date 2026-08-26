@@ -72,8 +72,10 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
     let mut total_bytes: u64 = 0;
 
     // relative to where code is ran from
-    let mut final_path = PathBuf::from("./uploads/media");
-    let mut temp_path = PathBuf::from("./uploads/temp");
+    let final_location = crate::constants::FINAL_LOCATION;
+    let temp_location = crate::constants::TEMP_LOCATION;
+    let mut final_path = PathBuf::from(format!("{final_location}"));
+    let mut temp_path = PathBuf::from(format!("{temp_location}"));
 
     utils::create_dir(&temp_path).await?;
     // until the file is fully processed, its name
@@ -82,7 +84,8 @@ async fn handle_media_body(request: Request) -> Result<(u64, String), (StatusCod
     let filename = uuid::Uuid::now_v7();
 
     // create file in temp directory first
-    temp_path.push(format!("{filename}.part"));
+    let part_file = crate::constants::PARTIAL_FILE;
+    temp_path.push(format!("{filename}.{part_file}"));
 
     let mut file = utils::create_file(&temp_path).await?;
 
@@ -161,7 +164,8 @@ async fn final_check(
 
                     // if it's not empty and written to disk, change it to be .ready to commit it
                     let mut ready_path = temp_path.clone();
-                    ready_path.set_file_name(format!("{filename}.ready"));
+                    let ready_file = crate::constants::READY_FILE;
+                    ready_path.set_file_name(format!("{filename}.{ready_file}"));
 
                     utils::rename(temp_path, &ready_path).await?;
 
@@ -177,7 +181,9 @@ async fn final_check(
                     // by their name, but DB's created_at is still authoritative
 
                     utils::create_dir(&final_path).await?;
-                    final_path.push(format!("{filename}.final"));
+                    let final_file = crate::constants::FINAL_FILE;
+                    
+                    final_path.push(format!("{filename}.{final_file}"));
 
                     utils::rename(&ready_path, &final_path).await?;
 
@@ -207,89 +213,3 @@ async fn final_check(
     }
 }
 
-// async fn create_dir(path: &PathBuf) -> Result<(), (StatusCode, String)>{
-//     let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
-//     let filepath = path.display().to_string();
-//     match tokio::fs::create_dir_all(&path).await {
-//         Ok(()) => Ok(()),
-//         Err(_) => {
-//             // println!("{internal_server_error}: Couldn't create the required path '{filepath}'! \n");
-//             return Err((
-//                 internal_server_error,
-//                 format!("{internal_server_error}: Couldn't create the required path '{filepath}'!\n")
-//             ))
-//         }
-//     }
-// }
-
-// async fn create_file(path: &PathBuf) -> Result<tokio::fs::File, (StatusCode, String)> {
-//     let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
-//     let filepath = path.display().to_string();
-//     match tokio::fs::File::create(&path).await {
-//         Ok(f) => Ok(f),
-//         Err(_) => {
-//             // println!("{internal_server_error}: Couldn't create a directory in {filepath}");
-//             return Err((
-//                 internal_server_error,
-//                 format!("{internal_server_error}: Couldn't create a directory in {filepath}")
-//             ))
-//         }
-//     }
-// }
-
-// async fn remove(path: &PathBuf) -> Result<(), (StatusCode, String)>{
-//     let filepath = path.display().to_string();
-//     let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
-
-//     match tokio::fs::remove_file(&path).await {
-//         Ok(()) => Ok(()),
-//         Err(_) => {
-//             // println!("{internal_server_error}: Couldn't remove file '{filepath}'!\n");
-//             return Err((
-//                 internal_server_error,
-//                 format!("{internal_server_error}: Couldn't remove file '{filepath}'!\n")
-//             ))
-//         }
-//     }
-// }
-
-// async fn rename(old_path: &PathBuf, new_path: &PathBuf) -> Result<(), (StatusCode, String)> {
-//     let bad_request = StatusCode::BAD_REQUEST;
-
-//     // To ensure empty or negative files aren't moved
-//     if is_empty(&old_path).await {
-//         let old = old_path.display().to_string();
-//         return Err((
-//             bad_request,
-//             format!("{bad_request}: File '{old}' is of invalid size!\n")
-//         ))
-//     }
-
-//     let internal_server_error = StatusCode::INTERNAL_SERVER_ERROR;
-//     let old_file_path = old_path.display().to_string();
-//     let new_file_path = new_path.display().to_string();
-//     match tokio::fs::rename(&old_path, &new_path).await {
-//         Ok(()) => Ok(()),
-//         Err(e) => {
-//             // println!("{internal_server_error}: Error '{e}' while renaming file '{old_file_path}' to '{new_file_path}'!\n");
-//             return Err((
-//                 internal_server_error,
-//                 format!("{internal_server_error}: Error '{e}' while renaming file '{old_file_path}' to '{new_file_path}'!\n")
-//             ))
-//         }
-//     }
-// }
-
-// async fn is_empty(path: &PathBuf) -> bool {
-//     println!("Checking empty file right now");
-//     match tokio::fs::metadata(&path).await {
-//         Ok(bytes) if bytes.len() <= 0 => {
-//             // println!("File is empty");
-//             return true
-//         },
-//         _ => {
-//             // println!("File is not empty");
-//             return false
-//         }
-//     }
-// }

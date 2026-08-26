@@ -2,7 +2,8 @@
 mod routes;
 mod upload;
 mod utils;
-// mod constants;
+pub mod constants;
+pub mod workers;
 
 pub use routes::media_routes;
 
