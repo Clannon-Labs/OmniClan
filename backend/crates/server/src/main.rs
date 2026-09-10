@@ -8,13 +8,13 @@ use axum::{
         StatusCode,
     }
 };
-
+use media;
 
 #[tokio::main]
 async fn main() {
     let app = Router::new()
         .route("/health", get(handle_health))
-        .merge(media::media_routes())
+        .merge(media::handle_routes())
         .fallback(handle_not_found);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
