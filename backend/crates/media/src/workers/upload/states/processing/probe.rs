@@ -5,7 +5,7 @@ use std::io::{Error, ErrorKind};
 use serde_json;
 use tokio::process::Command;
 
-use super::super::manifest::FrameRate;
+use super::super::states::FrameRate;
 
 #[derive(Debug, Deserialize)]
 #[serde( rename_all = "snake_case" )]

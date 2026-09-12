@@ -114,6 +114,8 @@ pub(crate) struct VideoMetadata {
     pub(crate) codec: String, // video
     pub(crate) duration_ms: u64,
 
+    pub(crate) fps: FrameRate,
+    
     pub(crate) width: u32,
     pub(crate) height: u32,
 
@@ -135,6 +137,12 @@ pub(crate) struct AudioMetadata {
     pub(crate) channels: u32,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde( rename_all = "snake_case" )]
+pub(crate) struct FrameRate {
+    pub(crate) numerator: u32,
+    pub(crate) denominator: u32,
+}
 
 impl Artifact {
     pub(crate) fn name(&self) -> &'static str {
@@ -148,6 +156,13 @@ impl Artifact {
         match self {
             Self::Video(video) => &video.metadata.format,
             Self::Audio(audio) => &audio.metadata.format,
+        }
+    }
+
+    pub(crate) fn fps(&self) -> Option<&FrameRate> {
+        match self {
+            Self::Video(video) => Some(&video.metadata.fps),
+            _ => None,
         }
     }
     

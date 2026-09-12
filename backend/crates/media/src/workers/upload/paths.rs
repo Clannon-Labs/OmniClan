@@ -10,14 +10,22 @@ pub(crate) struct MediaPaths {
 
 impl MediaPaths {
     pub(crate) async fn initialize() -> Result<Self, std::io::Error> {
+        // println!("[MEDIA PATHS]: Initializing paths...");
         let paths = Self {
             root: PathBuf::from(UPLOAD_LOCATION),
         };
 
+        // println!("[MEDIA PATHS]: About to call staging creator");
+        utils::create_dir(&paths.staging()).await?;
+        // println!("[MEDIA PATHS]: About to call processing creator");
         utils::create_dir(&paths.processing()).await?;
+        // println!("[MEDIA PATHS]: About to call failed creator");
         utils::create_dir(&paths.failed()).await?;
+        // println!("[MEDIA PATHS]: About to call final location creator");
         utils::create_dir(&paths.final_location()).await?;
 
+        // println!("[MEDIA PATHS]: Paths initialized successfully");
+        
         Ok(paths)
     }
     
@@ -30,6 +38,8 @@ impl MediaPaths {
             .join(format!("{id}"))
             .join(TEMPORARY_FILE_NAME);
 
+        // println!("[MEDIA PATHS]: Returning {} from create_staging_file", staging.display());
+        
         Ok(staging)
     }
 
@@ -76,6 +86,7 @@ impl MediaPaths {
         let final_path = self.final_location()
             .join(format!("{id}"));
 
+        // println!("[MEDIA PATHS]: About to create final location");
         utils::create_dir(&final_path).await?;
 
         Ok(final_path)

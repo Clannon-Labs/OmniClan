@@ -22,18 +22,22 @@ impl VideoArtifact {
         probe: &ProbeOutput,
     ) -> Result<Self, std::io::Error> {
 
+        // println!("[VIDEO ARTIFACT]: About to get video artifact from {}", video_path.display());
         let video_stream = probe.video_streams().next()
             .ok_or_else (
                 || std::io::Error::other(
                     "Couldn't get the video data from file!"
                 )
             )?;
+        // println!("[VIDEO ARTIFACT]: Got video stream: {:?}", video_stream);
 
+        // println!("[VIDEO ARTIFACT]: Now trying to return the VideoArtifact");
         Ok(Self {
             path: video_path.to_path_buf(),
             metadata: VideoMetadata {
                 format: probe.format.format_name.clone(),
                 codec: video_stream.codec_name().to_string(),
+                fps: video_stream.avg_fps()?,
                 height: video_stream.height()?,
                 width: video_stream.width()?,
                 duration_ms: video_stream.duration_ms()?,
@@ -53,6 +57,7 @@ impl VideoArtifact {
         // will check if video is available before calling it but
         // still.. better safe than sorry
         if !old_probe.has_video() {
+            println!("[VIDEO ARTIFACT]: No video found to extract audio from in '{}'", source_path.display());
             return Err(
                 UploadError::InvalidMedia {
                     reason: format!("No video found to extract audio from in '{source_path:?}'"),
@@ -61,6 +66,7 @@ impl VideoArtifact {
         }
         
         if !old_probe.has_audio() {
+            println!("[VIDEO ARTIFACT]: No audio found to extract in '{}'", source_path.display());
             return Err(
                 UploadError::InvalidMedia {
                     reason: format!("No audio found to extract in '{source_path:?}'"),

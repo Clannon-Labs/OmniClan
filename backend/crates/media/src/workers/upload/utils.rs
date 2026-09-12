@@ -16,10 +16,20 @@ pub(crate) async fn create_dir(path: &Path) -> Result<(), std::io::Error>{
 }
 
 pub(crate) async fn create_file(path: &Path) -> Result<tokio::fs::File, std::io::Error> {
+    // println!("[UPLOADING MEDIA UTILS]: About to create a file in {}", path.display());
     let filepath = path.display().to_string();
+
+    if let Some(parent) = path.parent() {
+        if let Err(e) = create_dir(parent).await {
+            // println!("[UPLOADING MEDIA UTILS]: Failed to create the directory: {}", e);
+            return Err(e);
+        }
+    }
+    
     match File::create(&path).await {
         Ok(f) => Ok(f),
         Err(_) => {
+            // println!("[UPLOADING MEDIA UTILS]: Failed to create a file in {}", path.display());
             return Err(
                 std::io::Error::other(
                     format!("Couldn't create a directory in {filepath}!")

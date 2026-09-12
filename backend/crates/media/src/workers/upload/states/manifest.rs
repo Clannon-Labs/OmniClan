@@ -34,13 +34,6 @@ pub(crate) struct Manifest {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde( rename_all = "snake_case" )]
-pub(crate) struct FrameRate {
-    pub(crate) numerator: u32,
-    pub(crate) denominator: u32,
-}
-
 //
 // The result we got after we probed the original
 // media we had gotten.

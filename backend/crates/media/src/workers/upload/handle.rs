@@ -56,7 +56,7 @@ pub(crate) async fn handle_upload(
         None => Utc::now()
     };
     
-    // Now create a new UploadignMedia destination
+    // Now create a new UploadingMedia destination
     let uploading = UploadingMedia::new(&id).await?;
 
     // Initialize media object with UploadingMedia state
@@ -67,7 +67,7 @@ pub(crate) async fn handle_upload(
         state: MediaState::Uploading(uploading),
     };
 
-    Manifest::write(&media).await?;
+    // Manifest::write(&media).await?;
     
     // uploading was moved into Media's state, so extract 
     // uploading again
