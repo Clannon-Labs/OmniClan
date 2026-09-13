@@ -2,13 +2,21 @@ use std::path::Path;
 use tokio::fs::{self, File};
 
 pub(crate) async fn create_dir(path: &Path) -> Result<(), std::io::Error>{
-    let filepath = path.display().to_string();
+
+    if path.is_file() {
+        return Err(
+            std::io::Error::other(
+                format!("{path:?} is not a directory!")
+            )
+        )
+    }
+    
     match fs::create_dir_all(&path).await {
         Ok(()) => Ok(()),
         Err(_) => {
             return Err(
                 std::io::Error::other(
-                    format!("Couldn't create the directory: {filepath}")
+                    format!("Couldn't create the directory: {path:?}")
                 )
             )
         }
@@ -17,13 +25,9 @@ pub(crate) async fn create_dir(path: &Path) -> Result<(), std::io::Error>{
 
 pub(crate) async fn create_file(path: &Path) -> Result<tokio::fs::File, std::io::Error> {
     // println!("[UPLOADING MEDIA UTILS]: About to create a file in {}", path.display());
-    let filepath = path.display().to_string();
 
     if let Some(parent) = path.parent() {
-        if let Err(e) = create_dir(parent).await {
-            // println!("[UPLOADING MEDIA UTILS]: Failed to create the directory: {}", e);
-            return Err(e);
-        }
+        create_dir(parent).await?
     }
     
     match File::create(&path).await {
@@ -32,7 +36,7 @@ pub(crate) async fn create_file(path: &Path) -> Result<tokio::fs::File, std::io:
             // println!("[UPLOADING MEDIA UTILS]: Failed to create a file in {}", path.display());
             return Err(
                 std::io::Error::other(
-                    format!("Couldn't create a directory in {filepath}!")
+                    format!("Couldn't create a directory in {path:?}!")
                 )
             )
         }
@@ -71,6 +75,10 @@ pub(crate) async fn rename(old_path: &Path, new_path: &Path) -> Result<(), std::
     let old_file_path = old_path.display().to_string();
     let new_file_path = new_path.display().to_string();
     match fs::rename(&old_path, &new_path).await {
+        Ok(()) if old_path.exists() => {
+            remove(&old_path).await?;
+            return Ok(())
+        },
         Ok(()) => Ok(()),
         Err(e) => {
             return Err(

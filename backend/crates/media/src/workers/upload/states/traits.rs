@@ -46,8 +46,8 @@ pub(crate) trait MediaTrait {
 
     fn path(&self) -> &Path {
         match self.state() {
-            MediaState::Uploading(media) => &media.partial_path,
-            MediaState::Uploaded(media) => &media.source_path,
+            MediaState::Upload(media) => &media.partial_path,
+            // MediaState::Uploaded(media) => &media.source_path,
             MediaState::Processing(media) => &media.source_path,
             MediaState::Ready(media) => &media.ready_path,
             MediaState::Final(media) => &media.final_path,
@@ -56,28 +56,28 @@ pub(crate) trait MediaTrait {
     }
     
     fn is_uploading(&self) -> bool {
-        matches!(self.state(), MediaState::Uploading(_))
+        matches!(self.state(), MediaState::Upload(_))
     }
     
-    fn is_uploaded(&self) -> bool {
-        matches!(self.state(), MediaState::Uploaded(_))
-    } 
+    // fn is_uploaded(&self) -> bool {
+    //     matches!(self.state(), MediaState::Uploaded(_))
+    // } 
 
-    fn is_processing(&self) -> bool {
-        matches!(self.state(), MediaState::Processing(_))
-    }
+    // fn is_processing(&self) -> bool {
+    //     matches!(self.state(), MediaState::Processing(_))
+    // }
     
-    fn is_ready(&self) -> bool {
-        matches!(self.state(), MediaState::Ready(_))
-    }
+    // fn is_ready(&self) -> bool {
+    //     matches!(self.state(), MediaState::Ready(_))
+    // }
     
-    fn is_final(&self) -> bool {
-        matches!(self.state(), MediaState::Final(_))
-    }
+    // fn is_final(&self) -> bool {
+    //     matches!(self.state(), MediaState::Final(_))
+    // }
     
-    fn is_failed(&self) -> bool {
-        matches!(self.state(), MediaState::Failed(_))
-    }    
+    // fn is_failed(&self) -> bool {
+    //     matches!(self.state(), MediaState::Failed(_))
+    // }    
 }
 
 impl MediaTrait for Media {

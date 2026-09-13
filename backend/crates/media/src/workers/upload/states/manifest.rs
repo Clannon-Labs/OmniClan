@@ -72,6 +72,8 @@ impl Manifest {
         // maybe take it as an argument??
 
         let path = media.path();
+
+        // println!("\n[MANIFEST]: Writing manifest to: {:?}", &path);
         
         let bytes = serde_json::to_vec_pretty(&manifest)
             .map_err(

@@ -14,10 +14,12 @@ pub(crate) const AUDIO_NAME: &str = "audio";
 
 pub(super) const UPLOAD_LOCATION: &str = "../uploads";
 
-pub(super) const STAGING_NAME: &str = "staging";
-pub(super) const PROCESSING_NAME: &str = "processing";
-pub(super) const FAILED_NAME: &str = "failed";
-pub(super) const FINAL_NAME: &str = "final";
+pub(super) const TEMPORARY_LOCATION: &str = "temp";
+
+// pub(super) const STAGING_LOCATION: &str = "staging";
+// pub(super) const PROCESSING_LOCATION: &str = "processing";
+pub(super) const FAILED_LOCATION: &str = "failed";
+pub(super) const FINAL_LOCATION: &str = "final";
 
 // pub(super) const VIDEO_DIR: &str = "video";
 // pub(super) const AUDIO_DIR: &str = "audio";

@@ -6,8 +6,8 @@ use axum::{
 
 use uuid::Uuid;
 use super::super::{    
-    UploadingMedia,
-    UploadedMedia,
+    UploadMedia,
+    ProcessingMedia,
     
     MediaPaths,
 
@@ -19,11 +19,15 @@ use super::super::{
 // };
 use super::handle::handle_uploading;
 
-impl UploadingMedia {
-    pub(crate) async fn new(id: &Uuid) -> Result<Self, std::io::Error> {
-        let partial_path = MediaPaths::initialize()
-            .await?
-            .create_staging_file(id)?;
+impl UploadMedia {
+    pub(crate) async fn new(
+        id: &Uuid,
+    ) -> Result<Self, UploadError> {
+        
+        let partial_path = MediaPaths::get_temporary_file(id)
+            .await?;
+
+        // println!("\n[UPLOAD]: Created temporary media at: {:?}", &partial_path);
         
         Ok(Self {
             partial_path: partial_path, // PathBuf
@@ -35,22 +39,26 @@ impl UploadingMedia {
         self,
         headers: HeaderMap,
         body: Body,
-    ) -> Result<UploadedMedia, UploadError> {
-                
-        let uploaded_bytes = handle_uploading(
+    ) -> Result<ProcessingMedia, UploadError> {
+
+        // println!("[UPLOAD]: Partial path: {:?}", &self.partial_path);
+        
+        let source_bytes = handle_uploading(
             &headers,
             body,
             MAX_UPLOAD_BYTES,
-            self.partial_path.clone(),
+            &self.partial_path,
         ).await
         .map_err(|err| UploadError::Io {
             source: err,
             path: Some(self.partial_path.clone())
         })?;
 
-        Ok(UploadedMedia{
+        // println!("\n[UPLOAD]: Source path: {:?}\tSource bytes: {}", &self.partial_path, source_bytes);
+        
+        Ok(ProcessingMedia{
             source_path: self.partial_path,
-            uploaded_bytes: uploaded_bytes,
+            source_bytes: source_bytes,
         })
     }
 

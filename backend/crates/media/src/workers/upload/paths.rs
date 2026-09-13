@@ -1,91 +1,74 @@
-use std::path::PathBuf;
-// use tokio::fs;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
+// use tokio::fs;
 use super::constants::*;
 use super::utils;
 
-pub(crate) struct MediaPaths {
-    root: PathBuf,
-}
+pub(crate) struct MediaPaths;
 
 impl MediaPaths {
-    pub(crate) async fn initialize() -> Result<Self, std::io::Error> {
-        // println!("[MEDIA PATHS]: Initializing paths...");
-        let paths = Self {
-            root: PathBuf::from(UPLOAD_LOCATION),
-        };
-
-        // println!("[MEDIA PATHS]: About to call staging creator");
-        utils::create_dir(&paths.staging()).await?;
-        // println!("[MEDIA PATHS]: About to call processing creator");
-        utils::create_dir(&paths.processing()).await?;
-        // println!("[MEDIA PATHS]: About to call failed creator");
-        utils::create_dir(&paths.failed()).await?;
-        // println!("[MEDIA PATHS]: About to call final location creator");
-        utils::create_dir(&paths.final_location()).await?;
-
-        // println!("[MEDIA PATHS]: Paths initialized successfully");
-        
-        Ok(paths)
-    }
-    
-    pub(crate) fn create_staging_file(
-        &self,
-        id: &Uuid)-> Result<PathBuf, std::io::Error> {
-        
-        let staging = self
-            .staging()
-            .join(format!("{id}"))
-            .join(TEMPORARY_FILE_NAME);
-
-        // println!("[MEDIA PATHS]: Returning {} from create_staging_file", staging.display());
-        
-        Ok(staging)
-    }
-
-    pub(crate) async fn create_processing_location(
-        &self,
-        id: &Uuid)-> Result<PathBuf, std::io::Error> {
-
-        let processing = self.processing()
-            .join(format!("{id}"));
-
-        utils::create_dir(&processing).await?;
-
-        Ok(processing)
-    }
-
-    pub(crate) async fn create_final_location(
-        &self,
-        id: &Uuid,
-    ) -> Result<PathBuf, std::io::Error> {
-        let final_path = self.final_location()
-            .join(format!("{id}"));
-
-        // println!("[MEDIA PATHS]: About to create final location");
-        utils::create_dir(&final_path).await?;
-
-        Ok(final_path)
-    }
-    
-    // pub(crate) fn root(&self) -> &Path {
-    //     &self.root
+    // async fn initialize() -> Result<(), std::io::Error> {
+    //     utils::create_dir(&Self::get_temporary_directory()).await?;
+    //     utils::create_dir(&Self::get_failed_directory()).await?;
+    //     utils::create_dir(&Self::get_final_directory()).await?;
+    //     Ok(())
     // }
 
-    pub(crate) fn staging(&self) -> PathBuf {
-        self.root.join(STAGING_NAME)
-    }
+    // async fn create_dir_from_const(dir_str: &'static str) -> Result<&'static Path, std::io::Error> {
+    //     let path = Path::new(dir_str);
+    //     utils::create_dir(&path).await?;
+    //     Ok(path)
+    // }
     
-    pub(crate) fn processing(&self) -> PathBuf {
-        self.root.join(PROCESSING_NAME)
+    fn get_temporary_directory() -> PathBuf {
+        Path::new(UPLOAD_LOCATION).join(TEMPORARY_LOCATION)
     }
 
-    pub(crate) fn failed(&self) -> PathBuf {
-        self.root.join(FAILED_NAME)
+    fn get_failed_directory() -> PathBuf {
+        Path::new(UPLOAD_LOCATION).join(FAILED_LOCATION)
     }
 
-    pub(crate) fn final_location(&self) -> PathBuf {
-        self.root.join(FINAL_NAME)
+    fn get_final_directory() -> PathBuf {
+        Path::new(UPLOAD_LOCATION).join(FINAL_LOCATION)
+    }
+
+    async fn create_temporary_location(
+        id: &Uuid,
+    ) -> Result<PathBuf, std::io::Error> {
+        let temp_location = Self::get_temporary_directory()
+            .join(id.to_string());
+
+        utils::create_dir(&temp_location).await?;
+
+        Ok(temp_location)
+    }
+
+    pub(crate) async fn get_temporary_file(
+        id: &Uuid
+    ) -> Result<PathBuf, std::io::Error> {
+        let temp_loc = Self::create_temporary_location(id).await?;
+        Ok(temp_loc.join(TEMPORARY_FILE_NAME))
+    }
+
+    pub(crate) async fn create_failed_location(
+        id: &Uuid
+    ) -> Result<PathBuf, std::io::Error> {
+        let failed_location = Self::get_failed_directory()
+            .join(id.to_string());
+
+        utils::create_dir(&failed_location).await?;
+
+        Ok(failed_location)
     }
     
+    pub(crate) async fn create_final_location(
+        id: &Uuid
+    ) -> Result<PathBuf, std::io::Error> {
+        let final_location = Self::get_final_directory()
+            .join(id.to_string());
+
+        utils::create_dir(&final_location).await?;
+
+        Ok(final_location)
+    }
 }

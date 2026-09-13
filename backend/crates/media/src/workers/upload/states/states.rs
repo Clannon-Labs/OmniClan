@@ -9,8 +9,8 @@ use super::super::constants;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde( rename_all = "snake_case" )]
 pub(crate) enum MediaState {
-    Uploading(UploadingMedia),
-    Uploaded(UploadedMedia),
+    Upload(UploadMedia),
+    // Uploaded(UploadedMedia),
     Processing(ProcessingMedia),
     Ready(ReadyMedia),
     Final(FinalMedia),
@@ -28,22 +28,24 @@ pub(crate) struct Media {
 // When user first uploads the media;
 // the streaming process
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub(crate) struct UploadingMedia {
+pub(crate) struct UploadMedia {
     pub(crate) partial_path: PathBuf,
     pub(crate) uploaded_bytes: u64,
+    // pub(crate) uploaded: bool,
 }
 
 // Streaming successful
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub(crate) struct UploadedMedia {
-    pub(crate) source_path: PathBuf,
-    pub(crate) uploaded_bytes: u64,
-}
+// #[derive(Debug, Serialize, Deserialize, Clone)]
+// pub(crate) struct UploadedMedia {
+//     pub(crate) source_path: PathBuf,
+//     pub(crate) uploaded_bytes: u64,
+// }
 
 // Now processing the video and trying to extract audio if available
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct ProcessingMedia {
     pub(crate) source_path: PathBuf,
+    pub(crate) source_bytes: u64,
 }
 
 // Video is ready to be commited to permanent storage and

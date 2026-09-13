@@ -16,10 +16,7 @@ impl ReadyMedia {
         id: &Uuid,
     ) -> Result<FinalMedia, UploadError> {
 
-        let destination_path = MediaPaths::initialize()
-            .await?
-            .create_final_location(id)
-            .await?;
+        let destination_path = MediaPaths::create_final_location(id).await?;
 
         // println!("[READY MEDIA]: Destination path: {:?}", destination_path);
         
@@ -44,7 +41,7 @@ impl ReadyMedia {
        } 
 
        // println!("[READY MEDIA]: Artifacts: {:?}", &self.artifacts);
-       
+
         Ok(
             FinalMedia {
                 final_path: destination_path,

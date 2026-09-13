@@ -1,5 +1,5 @@
-// ?
-use std::path::PathBuf;
+
+use std::path::Path;
 use tokio::{
     io::AsyncWriteExt,
 };
@@ -18,7 +18,7 @@ pub(super) async fn handle_uploading(
     headers: &HeaderMap,
     body: Body,
     max_bytes: u64,
-    input_path: PathBuf,
+    input_path: &Path,
 ) -> Result<u64, std::io::Error> {
 
     // println!("[UPLOADING MEDIA HANDLER]: About to call the header handler!");
@@ -30,6 +30,7 @@ pub(super) async fn handle_uploading(
     
 
      // println!("[UPLOADING MEDIA HANDLER]: About to call the body handler!");
+     // println!("[UPLOAD BODY]: Input path: {:?}", input_path);
     let uploaded_bytes = handle_media_body(
         body,
         max_bytes,
@@ -84,16 +85,16 @@ fn handle_media_header(
 async fn handle_media_body(
     body: Body,
     max_bytes: u64,
-    input_path: PathBuf, // with filename already in input_path
+    input_path: &Path, // with filename already in input_path
 ) -> Result<u64, std::io::Error> {
     
     let mut stream = body.into_data_stream();
 
     let mut total_bytes: u64 = 0;
 
-    // println!("[UPLOADING MEDIA HANDLER]: About to create a file in {}", input_path.display());
+    // println!("[UPLOAD MEDIA BODY]: About to create a file in {:?}", input_path);
     let mut file = utils::create_file(&input_path).await?;
-    // println!("[UPLOADING MEDIA HANDLER]: Successfully created a file in {}", input_path.display());
+    // println!("[UPLOAD MEDIA BODY]: Successfully created a file in {:?}", input_path);
     
     while let Some(stream_chunk) = stream.next().await {
         match stream_chunk {

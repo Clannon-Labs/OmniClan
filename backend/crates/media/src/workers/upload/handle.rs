@@ -57,7 +57,7 @@ pub(crate) async fn handle_upload(
     };
     
     // Now create a new UploadingMedia destination
-    let uploading = UploadingMedia::new(&id).await?;
+    let upload = UploadMedia::new(&id).await?;    
     // let uploading = match UploadingMedia::new(&id).await {
     //     Ok(u) => u,
     //     Err(e) => {
@@ -76,22 +76,27 @@ pub(crate) async fn handle_upload(
         id,
         created_at: now,
         updated_at: now,
-        state: MediaState::Uploading(uploading),
+        state: MediaState::Upload(upload),
     };
 
+    // println!("[UPLOAD HANDLER]: Media: {:?}", media);
+    
     // Manifest::write(&media).await?;
     
     // uploading was moved into Media's state, so extract 
     // uploading again
-    let uploading = match media.state {
-        MediaState::Uploading(uploading) => uploading,
+    let upload = match media.state {
+        MediaState::Upload(upload) => upload,
         _ => unreachable!(),
     };
 
     // Get the uploading struct and call the function
-    let uploaded = uploading
+    let processing = upload
         .complete_upload(request.headers, request.body)
         .await?;
+
+    // println!("\n[UPLOAD]: Upload completed, processing: {:?}", processing);
+    
     // let uploaded = match uploading
     //     .complete_upload(request.headers, request.body)
     //     .await {
@@ -104,7 +109,7 @@ pub(crate) async fn handle_upload(
 
     // Change the new state and the updated_time
     // And repeat the same for all states.
-    media.state = MediaState::Uploaded(uploaded);
+    media.state = MediaState::Processing(processing);
     media.updated_at = Utc::now();
 
     Manifest::write(&media).await?;
@@ -115,8 +120,9 @@ pub(crate) async fn handle_upload(
 
     // uploaded was moved into media.state, so extract
     // it again
-    let uploaded = match media.state {
-        MediaState::Uploaded(uploaded) => uploaded,
+    
+    let processing = match media.state {
+        MediaState::Processing(processing) => processing,
         _ => unreachable!(),
     };
 
@@ -134,8 +140,8 @@ pub(crate) async fn handle_upload(
     // Until we take the same params, return same stuff and
     //  change the directory properly.
     // 
-    let processing = uploaded
-        .start_processing(&media.id)
+    let ready = processing.clone()
+        .process(&processing.path())
         .await?;
     // let processing = match uploaded
     //     .start_processing(&media.id)
@@ -147,7 +153,7 @@ pub(crate) async fn handle_upload(
     //         }
     //     };
     
-    media.state = MediaState::Processing(processing);
+    media.state = MediaState::Ready(ready);
     media.updated_at = Utc::now();
 
     Manifest::write(&media).await?;
@@ -157,14 +163,14 @@ pub(crate) async fn handle_upload(
     // }
     
     // Extract processing again cuz it was moved
-    let processing = match media.state {
-        MediaState::Processing(processing) => processing,
+    let ready = match media.state {
+        MediaState::Ready(ready) => ready,
         _ => unreachable!(),
     };
 
-    let ready = processing.clone()
-        .process(&processing.path())
-        .await?;
+    // let ready = processing.clone()
+    //     .process(&processing.path())
+    //     .await?;
     // let ready = match processing.clone()
     //     .process(&processing.path())
     //     .await {
@@ -175,19 +181,19 @@ pub(crate) async fn handle_upload(
     //         }
     //     };
 
-    media.state = MediaState::Ready(ready);
-    media.updated_at = Utc::now();
+    // media.state = MediaState::Ready(ready);
+    // media.updated_at = Utc::now();
 
-    Manifest::write(&media).await?;
+    // Manifest::write(&media).await?;
     // if let Err(e) = Manifest::write(&media).await {
     //     println!("[UPLOAD HANDLER]: Error occured while writing 3rd manifest: {}", e);
     //     return Err(e);
     // }
     
-    let ready = match media.state {
-        MediaState::Ready(ready) => ready,
-        _ => unreachable!(),
-    };
+    // let ready = match media.state {
+    //     MediaState::Ready(ready) => ready,
+    //     _ => unreachable!(),
+    // };
 
     let finalized_media = ready
         .finalize(&media.id)
@@ -206,6 +212,9 @@ pub(crate) async fn handle_upload(
     media.updated_at = Utc::now();
 
     Manifest::write(&media).await?;
+
+    println!("[UPLOAD HANDLER]: Successfully processed the media!");
+    
     // if let Err(e) = Manifest::write(&media).await {
     //     println!("[UPLOAD HANDLER]: Error occured while writing 4th manifest: {}", e);
     //     return Err(e);
