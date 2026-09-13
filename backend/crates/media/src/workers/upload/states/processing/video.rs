@@ -23,7 +23,7 @@ impl VideoArtifact {
     ) -> Result<Self, std::io::Error> {
 
         // println!("[VIDEO ARTIFACT]: About to get video artifact from {}", video_path.display());
-        let video_stream = probe.video_streams().next()
+        let video_stream = probe.video_streams()
             .ok_or_else (
                 || std::io::Error::other(
                     "Couldn't get the video data from file!"
@@ -32,15 +32,19 @@ impl VideoArtifact {
         // println!("[VIDEO ARTIFACT]: Got video stream: {:?}", video_stream);
 
         // println!("[VIDEO ARTIFACT]: Now trying to return the VideoArtifact");
+        // println!("[VIDEO]: Video path: {:?}\n", video_path);
+        // println!("[VIDEO]: Video stream: {:?}\n", video_stream);
+        // println!("[VIDEO]: Probe: {:?}'n", probe);
+        
         Ok(Self {
             path: video_path.to_path_buf(),
             metadata: VideoMetadata {
-                format: probe.format.format_name.clone(),
+                format: probe.format.format_name()?.to_string(),
                 codec: video_stream.codec_name().to_string(),
                 fps: video_stream.avg_fps()?,
                 height: video_stream.height()?,
                 width: video_stream.width()?,
-                duration_ms: video_stream.duration_ms()?,
+                duration_ms: probe.duration_ms()?,
                 size_bytes: probe.size_bytes()?,
                 has_audio: probe.has_audio(),
             }
@@ -128,10 +132,10 @@ impl VideoArtifact {
             AudioArtifact {
                 path: audio_destination.to_path_buf(),
                 metadata: AudioMetadata {
-                    format: probe.format.format_name.clone(),
+                    format: probe.format.format_name()?.to_string(),
                     codec: audio.codec_name().to_string(),
                     size_bytes: probe.size_bytes()?,
-                    duration_ms: audio.duration_ms()?,
+                    duration_ms: probe.duration_ms()?,
                     sample_rate: audio.sample_rate()?,
                     channels: audio.channels()?,
                 }

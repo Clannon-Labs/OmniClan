@@ -84,9 +84,26 @@ impl Manifest {
                     path: Some(path.to_path_buf()),
                 }
             )?;
+
+        let filename = if path.is_file() {
+            path.with_file_name("manifest.json")
+        } else {
+            path.join("manifest.json")
+        };
         
-        let mut file = fs::File::create(path.join("manifest.json"))
-            .await?;
+        let mut file = match fs::File::create(filename)
+            .await {
+                Ok(f) => f,
+                Err(e) => {
+                    // println!("[MANIFEST]: Error occured while creating manifest file on {}", path.display());
+                    return Err(
+                        UploadError::Io {
+                            source: e,
+                            path: Some(path.to_path_buf())
+                        }
+                    );
+                }
+            };
         
         file.write_all(&bytes).await?;
 

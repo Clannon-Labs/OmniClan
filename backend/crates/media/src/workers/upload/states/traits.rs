@@ -32,7 +32,7 @@ pub(crate) trait MediaTrait {
             matches!(artifact, Artifact::Video(_))
         })
     }
-
+    
     // I thought it will be Option<> because artifacts
     // would be returned only if the current state is
     // the followings
@@ -103,4 +103,5 @@ impl Media {
     pub(crate) fn path(&self) -> &Path {
         <Self as MediaTrait>::path(&self)
     }
+
 }

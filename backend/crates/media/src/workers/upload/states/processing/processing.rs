@@ -1,5 +1,6 @@
 
 use std::path::Path;
+use super::super::super::utils;
 
 use super::super::{
     ProcessingMedia,
@@ -20,9 +21,13 @@ use super::{
 
 
 impl ProcessingMedia {
+    pub(crate) fn path(&self) -> &Path {
+        &self.source_path
+    }
+    
     pub(crate) async fn process(
         self,
-        source_path: &Path,
+        source_path: &Path
     ) -> Result<ReadyMedia, UploadError> {
 
         // Inspect the media/video via ffprobe 
@@ -30,20 +35,30 @@ impl ProcessingMedia {
         let probe = probe::probe_from_path(
             source_path,
         ).await?;
+
+        // println!("[PROCESSING]: Probe: {:?}\n", probe);
         
         if probe.has_video(){     
+            let format = probe.format.format_name()?;
+            
             let video_path = self.source_path
                 .with_file_name(
                     constants::VIDEO_NAME
-            );
+            ).with_extension(&format);
+
+            utils::rename(&self.source_path, &video_path).await?;
             
+            // println!("[PROCESSING]: Video path: {:?}\n", video_path);
+
             let audio_destination = self.source_path.clone()
                 .with_file_name(
                     constants::AUDIO_NAME
-            );
+            ).with_extension(&format);
 
+            // println!("[PROCESSING]: Audio destination: {:?}\n", audio_destination);
+            
             let video = VideoArtifact::get_video_artifact(
-                source_path,
+                &video_path,
                 &probe
             ).await
             .map_err(
@@ -62,9 +77,18 @@ impl ProcessingMedia {
                 source: std::io::Error::other(err),
                 path: Some(audio_destination.to_path_buf())
             })?;
+
+            // println!("[PROCESSING]: Video: {:?}\n", video);
+            // println!("[PROCESSING]: Audio: {:?}\n", audio);
+
+            // To get the directory of the final/ready path instead of path to a file
+            let mut ready_path = self.source_path.clone();
+            ready_path.pop();
+            
+            // println!("[PROCESSING]: Ready path: {:?}\n", ready_path);
             
             Ok(ReadyMedia {
-                ready_path: self.source_path,
+                ready_path: ready_path,
                 artifacts: vec![
                     Artifact::Video(video),
                     Artifact::Audio(audio),

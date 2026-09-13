@@ -18,7 +18,7 @@ pub(crate) struct ProbeOutput {
 #[serde( rename_all = "snake_case" )]
 pub(crate) struct ProbeFormat {
     pub(crate) filename: String,
-    pub(crate) format_name: String,
+    pub(crate) format_name: Option<String>,
     
     pub(crate) nb_streams: u32,
     
@@ -116,11 +116,11 @@ impl ProbeOutput {
             .any(|s| s.codec_type == "audio")
     }
     
-    pub(crate) fn video_streams(&self) -> impl Iterator<Item = &ProbeStream> {
+    pub(crate) fn video_streams(&self) -> Option<&ProbeStream> {
         self
             .streams
             .iter()
-            .filter(|s| s.codec_type == "video")
+            .find(|s| s.codec_type == "video")
     }
 
     pub(crate) fn audio_streams(&self) -> impl Iterator<Item = &ProbeStream> {
@@ -130,10 +130,10 @@ impl ProbeOutput {
             .filter(|s| s.codec_type == "audio")
     }
 
-    pub(crate) fn duration_ms(&self) -> Result<u64, Error>{
+    pub(crate) fn duration_ms(&self) -> Result<u64, Error> {
         self.format.duration_ms()
     }
-
+    
     pub(crate) fn size_bytes(&self) -> Result<u64, Error> {
         self.format.size_bytes()
     }
@@ -259,26 +259,31 @@ impl ProbeStream {
             ) 
     }
 
-    pub(crate) fn duration_ms(&self) -> Result<u64, Error> {
-        let duration_s: f64 = self
-            .duration
-            .as_deref()
-            .ok_or_else(
-                || Error::other(
-                    "No duration found!"
-                )
-            )?
-            .parse::<f64>()
-            .map_err(
-                |_| Error::other(
-                    "Couldn't parse duration!"
-                )
-            )?;
+    // duration inside format is the better way to get the exact duration
+    // of the media cuz individual streams are completely optional and
+    // maybe missing
+    // pub(crate) fn duration_ms(&self) -> Result<u64, Error> {
+    //     let duration_s: f64 = self
+    //         .duration
+    //         .as_deref()
+    //         .ok_or_else(
+    //             || Error::other(
+    //                 "No duration found!"
+    //             )
+    //         )?
+    //         .parse::<f64>()
+    //         .map_err(
+    //             |_| Error::other(
+    //                 "Couldn't parse duration!"
+    //             )
+    //         )?;
 
-        let duration_ms: u64 = (duration_s * 1000.0) as u64;
+    //     let duration_ms: u64 = (duration_s * 1000.0) as u64;
 
-        Ok(duration_ms)
-    }
+    //     println!("[PROBE]: duration_ms() from ProbeStream returned {}", duration_ms);
+        
+    //     Ok(duration_ms)
+    // }
 
     pub(crate) fn bit_rate(&self) -> Result<u32, Error> {
         self
@@ -304,8 +309,30 @@ impl ProbeFormat {
         &self.filename
     }
     
-    pub(crate) fn format_name(&self) -> &str {
-        &self.format_name
+    pub(crate) fn format_name(&self) -> Result<&str, Error> {
+        let name = &self
+            .format_name
+            .as_deref()
+            .ok_or_else(
+                || Error::other(
+                    "Missing format name"
+                )
+            )
+            .and_then(
+                |name| name.split_once(",")
+                    .ok_or_else(
+                        || Error::other(
+                            "Couldn't get the format names"
+                        )
+                    )
+            )?;
+
+        /*
+         * Example: "matroska,webm"
+         * What I am trying to get: webm
+         */
+
+        Ok(name.1)
     }
 
     pub(crate) fn nb_streams(&self) -> u32 {
@@ -336,6 +363,8 @@ impl ProbeFormat {
         // the floating part/milliseconds will be conserved
         let duration_ms = (duration_s * 1000.0) as u64;
 
+        // println!("[PROBE]: duration_ms() from ProbeFormat returned {}", duration_ms);
+        
         Ok(duration_ms)
     }
 

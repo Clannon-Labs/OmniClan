@@ -58,6 +58,18 @@ pub(crate) async fn handle_upload(
     
     // Now create a new UploadingMedia destination
     let uploading = UploadingMedia::new(&id).await?;
+    // let uploading = match UploadingMedia::new(&id).await {
+    //     Ok(u) => u,
+    //     Err(e) => {
+    //         println!("[UPLOAD HANDLER]: Failed to create UploadingMedia! {}", e);
+    //         return Err(
+    //             UploadError::Io {
+    //                 source: e,
+    //                 path: None,
+    //             }
+    //         );
+    //     }
+    // };
 
     // Initialize media object with UploadingMedia state
     let mut media = Media {
@@ -80,6 +92,15 @@ pub(crate) async fn handle_upload(
     let uploaded = uploading
         .complete_upload(request.headers, request.body)
         .await?;
+    // let uploaded = match uploading
+    //     .complete_upload(request.headers, request.body)
+    //     .await {
+    //         Ok(u) => u,
+    //         Err(e) => {
+    //             println!("[UPLOAD HANDLER]: Error while completing upload: {}", e);
+    //             return Err(e);
+    //         }
+    //     };
 
     // Change the new state and the updated_time
     // And repeat the same for all states.
@@ -87,6 +108,10 @@ pub(crate) async fn handle_upload(
     media.updated_at = Utc::now();
 
     Manifest::write(&media).await?;
+    // if let Err(e) = Manifest::write(&media).await {
+    //     println!("[UPLOAD HANDLER]: Failed to write 1st manifest: {}", e);
+    //     return Err(e);
+    // }
 
     // uploaded was moved into media.state, so extract
     // it again
@@ -112,40 +137,79 @@ pub(crate) async fn handle_upload(
     let processing = uploaded
         .start_processing(&media.id)
         .await?;
+    // let processing = match uploaded
+    //     .start_processing(&media.id)
+    //     .await {
+    //         Ok(p) => p,
+    //         Err(e) => {
+    //             println!("[UPLOAD HANDLER]: Failed to start processing: {}", e);
+    //             return Err(e);
+    //         }
+    //     };
     
     media.state = MediaState::Processing(processing);
     media.updated_at = Utc::now();
 
     Manifest::write(&media).await?;
+    // if let Err(e) = Manifest::write(&media).await {
+    //     println!("[UPLOAD HANDLER]: Error occured while writing 2nd manifest: {}", e);
+    //     return Err(e);
+    // }
     
     // Extract processing again cuz it was moved
     let processing = match media.state {
-        MediaState::Processing(ref processing) => processing,
+        MediaState::Processing(processing) => processing,
         _ => unreachable!(),
     };
 
     let ready = processing.clone()
-        .process(&media.path())
+        .process(&processing.path())
         .await?;
+    // let ready = match processing.clone()
+    //     .process(&processing.path())
+    //     .await {
+    //         Ok(r) => r,
+    //         Err(e) => {
+    //             println!("[UPLOAD HANDLER]: Error occured while processing media: {}", e);
+    //             return Err(e);
+    //         }
+    //     };
 
     media.state = MediaState::Ready(ready);
     media.updated_at = Utc::now();
 
     Manifest::write(&media).await?;
+    // if let Err(e) = Manifest::write(&media).await {
+    //     println!("[UPLOAD HANDLER]: Error occured while writing 3rd manifest: {}", e);
+    //     return Err(e);
+    // }
     
     let ready = match media.state {
         MediaState::Ready(ready) => ready,
         _ => unreachable!(),
     };
- 
+
     let finalized_media = ready
         .finalize(&media.id)
         .await?;
+    // let finalized_media = match ready
+    //     .finalize(&media.id)
+    //     .await {
+    //         Ok(f) => f,
+    //         Err(e) => {
+    //             println!("[UPLOAD HANDLER]: Error occured while finalizing media: {}", e);
+    //             return Err(e);
+    //         }
+    //     };
 
     media.state = MediaState::Final(finalized_media);
     media.updated_at = Utc::now();
 
     Manifest::write(&media).await?;
+    // if let Err(e) = Manifest::write(&media).await {
+    //     println!("[UPLOAD HANDLER]: Error occured while writing 4th manifest: {}", e);
+    //     return Err(e);
+    // }
     
     let finalized_media = match media.state {
         MediaState::Final(finalized) => finalized,

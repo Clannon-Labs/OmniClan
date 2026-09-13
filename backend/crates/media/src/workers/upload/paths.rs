@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 // use tokio::fs;
 use uuid::Uuid;
 use super::constants::*;
@@ -43,18 +43,6 @@ impl MediaPaths {
         Ok(staging)
     }
 
-    // pub(crate) async fn create_staging_file(
-    //     &self,
-    //     id: &Uuid,
-    // ) -> Result<PathBuf, std::io::Error> {
-    //     let file = self.create_staging_location(id)
-    //         .await?
-    //         .join(TEMPORARY_FILE_NAME);
-
-    //     Ok(file)
-    // }
-    
-
     pub(crate) async fn create_processing_location(
         &self,
         id: &Uuid)-> Result<PathBuf, std::io::Error> {
@@ -66,18 +54,6 @@ impl MediaPaths {
 
         Ok(processing)
     }
-
-    // pub(crate) async fn get_processing_filename(
-    //     &self,
-    //     id: &Uuid
-    // ) -> Result<PathBuf, std::io::Error> {
-    //     let processing = self
-    //         .create_processing_location(id)
-    //         .await?
-    //         .join(TEMPORARY_FILE_NAME);
-
-    //     Ok(processing)
-    // }
 
     pub(crate) async fn create_final_location(
         &self,
@@ -92,9 +68,9 @@ impl MediaPaths {
         Ok(final_path)
     }
     
-    pub(crate) fn root(&self) -> &Path {
-        &self.root
-    }
+    // pub(crate) fn root(&self) -> &Path {
+    //     &self.root
+    // }
 
     pub(crate) fn staging(&self) -> PathBuf {
         self.root.join(STAGING_NAME)
