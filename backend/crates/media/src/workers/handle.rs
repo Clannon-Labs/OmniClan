@@ -19,12 +19,20 @@ pub(crate) async fn upload_worker(
     headers: HeaderMap,
     body: Body,
 ) -> Result<impl IntoResponse, WorkerError> {
-    let media = handle_upload(
+    let media = match handle_upload(
         UploadRequest {
             headers,
             body
         }
-    ).await?;
+    ).await {
+        Ok(m) => m,
+        Err(e) => {
+            println!("[WORKER HANDLER]: An error occured while running upload handler! {}", e);
+            return Err(
+                WorkerError::Upload(e)
+            )
+        }
+    };
 
     // Don't expose the whole FinalMedia's data
     // But it's okay for until we make it work first
