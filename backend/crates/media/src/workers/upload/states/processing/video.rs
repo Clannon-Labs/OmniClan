@@ -13,28 +13,17 @@ use super::probe::{self, ProbeOutput};
 use super::super::super::UploadError;
 
 impl VideoArtifact {
-    pub(crate) fn path(&self) -> &Path {
-        &self.path
-    }
-    
     pub(crate) async fn get_video_artifact(
         video_path: &Path,
         probe: &ProbeOutput,
     ) -> Result<Self, std::io::Error> {
 
-        // println!("[VIDEO ARTIFACT]: About to get video artifact from {}", video_path.display());
         let video_stream = probe.video_streams()
             .ok_or_else (
                 || std::io::Error::other(
                     "Couldn't get the video data from file!"
                 )
             )?;
-        // println!("[VIDEO ARTIFACT]: Got video stream: {:?}", video_stream);
-
-        // println!("[VIDEO ARTIFACT]: Now trying to return the VideoArtifact");
-        // println!("[VIDEO]: Video path: {:?}\n", video_path);
-        // println!("[VIDEO]: Video stream: {:?}\n", video_stream);
-        // println!("[VIDEO]: Probe: {:?}'n", probe);
         
         Ok(Self {
             path: video_path.to_path_buf(),

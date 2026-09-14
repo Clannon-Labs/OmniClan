@@ -21,22 +21,16 @@ pub(super) async fn handle_uploading(
     input_path: &Path,
 ) -> Result<u64, std::io::Error> {
 
-    // println!("[UPLOADING MEDIA HANDLER]: About to call the header handler!");
     handle_media_header(
         headers,
         max_bytes
     )?;
-     // println!("[UPLOADING MEDIA HANDLER]: Header handler returned success");
     
-
-     // println!("[UPLOADING MEDIA HANDLER]: About to call the body handler!");
-     // println!("[UPLOAD BODY]: Input path: {:?}", input_path);
     let uploaded_bytes = handle_media_body(
         body,
         max_bytes,
         input_path,
     ).await?;
-    // println!("[UPLOADING MEDIA HANDLER]: Body handler returned success");
     
     Ok(uploaded_bytes)
     
@@ -51,7 +45,7 @@ fn handle_media_header(
         Some(length) => match length.to_str() {
             Ok(len_str) => match len_str.parse::<u64>() {
                 Ok(len) if len > max_bytes => {
-                    // println!("[UPLOADING MEDIA HANDLER]: Size limit exceeded the threshold!");
+                    println!("[UPLOADING MEDIA HANDLER]: Size limit exceeded the threshold!");
                     return Err(
                         std::io::Error::new(
                             std::io::ErrorKind::InvalidData,
@@ -92,9 +86,7 @@ async fn handle_media_body(
 
     let mut total_bytes: u64 = 0;
 
-    // println!("[UPLOAD MEDIA BODY]: About to create a file in {:?}", input_path);
     let mut file = utils::create_file(&input_path).await?;
-    // println!("[UPLOAD MEDIA BODY]: Successfully created a file in {:?}", input_path);
     
     while let Some(stream_chunk) = stream.next().await {
         match stream_chunk {

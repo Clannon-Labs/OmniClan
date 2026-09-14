@@ -24,7 +24,6 @@ pub(crate) async fn create_dir(path: &Path) -> Result<(), std::io::Error>{
 }
 
 pub(crate) async fn create_file(path: &Path) -> Result<tokio::fs::File, std::io::Error> {
-    // println!("[UPLOADING MEDIA UTILS]: About to create a file in {}", path.display());
 
     if let Some(parent) = path.parent() {
         create_dir(parent).await?
@@ -33,7 +32,6 @@ pub(crate) async fn create_file(path: &Path) -> Result<tokio::fs::File, std::io:
     match File::create(&path).await {
         Ok(f) => Ok(f),
         Err(_) => {
-            // println!("[UPLOADING MEDIA UTILS]: Failed to create a file in {}", path.display());
             return Err(
                 std::io::Error::other(
                     format!("Couldn't create a directory in {path:?}!")
@@ -44,14 +42,12 @@ pub(crate) async fn create_file(path: &Path) -> Result<tokio::fs::File, std::io:
 }
 
 pub(crate) async fn remove(path: &Path) -> Result<(), std::io::Error>{
-    let filepath = path.display().to_string();
-
     match fs::remove_file(&path).await {
         Ok(()) => Ok(()),
         Err(_) => {
             return Err(
                 std::io::Error::other(
-                    format!("Couldn't remove file '{filepath}'!")
+                    format!("Couldn't remove file '{path:?}'!")
                 )
             )
         }
@@ -64,16 +60,13 @@ pub(crate) async fn remove(path: &Path) -> Result<(), std::io::Error>{
 pub(crate) async fn rename(old_path: &Path, new_path: &Path) -> Result<(), std::io::Error> {
     // To ensure empty or negative files aren't moved
     if is_empty(&old_path).await {
-        let old = old_path.display().to_string();
         return Err(
             std::io::Error::other(
-                format!("File '{old}' is of invalid size!")
+                format!("File '{old_path:?}' is of invalid size!")
             )
         )
     }
         
-    let old_file_path = old_path.display().to_string();
-    let new_file_path = new_path.display().to_string();
     match fs::rename(&old_path, &new_path).await {
         Ok(()) if old_path.exists() => {
             remove(&old_path).await?;
@@ -83,7 +76,7 @@ pub(crate) async fn rename(old_path: &Path, new_path: &Path) -> Result<(), std::
         Err(e) => {
             return Err(
                 std::io::Error::other(
-                    format!("Error '{e}' while renaming file '{old_file_path}' to '{new_file_path}'!")
+                    format!("Error '{e}' while renaming file '{old_path:?}' to '{new_path:?}'!")
                 )
             )
         }

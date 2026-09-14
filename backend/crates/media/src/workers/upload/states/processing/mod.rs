@@ -3,6 +3,4 @@ mod probe;
 mod processing;
 
 mod video;
-mod audio;
-
-// pub(super) use probe::ProbeOutput;
+// mod audio; // Current there has been no need for this

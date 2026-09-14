@@ -35,8 +35,6 @@ impl ProcessingMedia {
         let probe = probe::probe_from_path(
             source_path,
         ).await?;
-
-        // println!("[PROCESSING]: Probe: {:?}\n", probe);
         
         if probe.has_video(){     
             let format = probe.format.format_name()?;
@@ -48,14 +46,10 @@ impl ProcessingMedia {
 
             utils::rename(&self.source_path, &video_path).await?;
             
-            // println!("[PROCESSING]: Video path: {:?}\n", video_path);
-
             let audio_destination = self.source_path.clone()
                 .with_file_name(
                     constants::AUDIO_NAME
             ).with_extension(&format);
-
-            // println!("[PROCESSING]: Audio destination: {:?}\n", audio_destination);
             
             let video = VideoArtifact::get_video_artifact(
                 &video_path,
@@ -78,15 +72,10 @@ impl ProcessingMedia {
                 path: Some(audio_destination.to_path_buf())
             })?;
 
-            // println!("[PROCESSING]: Video: {:?}\n", video);
-            // println!("[PROCESSING]: Audio: {:?}\n", audio);
-
             // To get the directory of the final/ready path instead of path to a file
             let mut ready_path = self.source_path.clone();
             ready_path.pop();
-            
-            // println!("[PROCESSING]: Ready path: {:?}\n", ready_path);
-            
+                        
             Ok(ReadyMedia {
                 ready_path: ready_path,
                 artifacts: vec![

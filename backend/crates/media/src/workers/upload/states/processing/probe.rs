@@ -17,20 +17,20 @@ pub(crate) struct ProbeOutput {
 #[derive(Debug, Deserialize)]
 #[serde( rename_all = "snake_case" )]
 pub(crate) struct ProbeFormat {
-    pub(crate) filename: String,
+    // pub(crate) filename: String,
     pub(crate) format_name: Option<String>,
     
-    pub(crate) nb_streams: u32,
+    // pub(crate) nb_streams: u32,
     
     pub(crate) duration: Option<String>,
     pub(crate) size: Option<String>,
-    pub(crate) bit_rate: Option<String>,
+    // pub(crate) bit_rate: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde( rename_all = "snake_case" )]
 pub(crate) struct ProbeStream {
-    pub(crate) index: i32,
+    // pub(crate) index: i32,
     pub(crate) codec_name: String, // av1/mp3
     pub(crate) codec_type: String, // video/audio
     
@@ -41,17 +41,17 @@ pub(crate) struct ProbeStream {
     
     pub(crate) sample_rate: Option<String>,
     pub(crate) channels: Option<u32>,
-    pub(crate) duration: Option<String>,
-    pub(crate) bit_rate: Option<String>,
+    // pub(crate) duration: Option<String>,
+    // pub(crate) bit_rate: Option<String>,
     
-    pub(crate) tags: Option<ProbeTags>,
+    // pub(crate) tags: Option<ProbeTags>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde( rename_all = "snake_case" )]
-pub(crate) struct ProbeTags {
-    pub(crate) language: Option<String>,
-}
+// #[derive(Debug, Deserialize)]
+// #[serde( rename_all = "snake_case" )]
+// pub(crate) struct ProbeTags {
+    // pub(crate) language: Option<String>,
+// }
 
 
 pub(super) async fn probe_from_path(
@@ -140,16 +140,8 @@ impl ProbeOutput {
 }
 
 impl ProbeStream {
-    pub(crate) fn index(&self) -> i32 {
-        self.index
-    }
-
     pub(crate) fn codec_name(&self) -> &str {
         &self.codec_name
-    }
-
-    pub(crate) fn codec_type(&self) -> &str {
-        &self.codec_type
     }
 
     pub(crate) fn height(&self) -> Result<u32, Error> {
@@ -170,14 +162,6 @@ impl ProbeStream {
                     "Couldn't find width!"
                 )
             )
-    }
-    
-    pub(crate) fn is_video(&self) -> bool {
-        self.codec_type == "video"
-    }
-
-    pub(crate) fn is_audio(&self) -> bool {
-        self.codec_type == "audio"
     }
 
     pub(crate) fn avg_fps(&self) -> Result<FrameRate, Error> {
@@ -259,56 +243,9 @@ impl ProbeStream {
             ) 
     }
 
-    // duration inside format is the better way to get the exact duration
-    // of the media cuz individual streams are completely optional and
-    // maybe missing
-    // pub(crate) fn duration_ms(&self) -> Result<u64, Error> {
-    //     let duration_s: f64 = self
-    //         .duration
-    //         .as_deref()
-    //         .ok_or_else(
-    //             || Error::other(
-    //                 "No duration found!"
-    //             )
-    //         )?
-    //         .parse::<f64>()
-    //         .map_err(
-    //             |_| Error::other(
-    //                 "Couldn't parse duration!"
-    //             )
-    //         )?;
-
-    //     let duration_ms: u64 = (duration_s * 1000.0) as u64;
-
-    //     println!("[PROBE]: duration_ms() from ProbeStream returned {}", duration_ms);
-        
-    //     Ok(duration_ms)
-    // }
-
-    pub(crate) fn bit_rate(&self) -> Result<u32, Error> {
-        self
-            .bit_rate
-            .as_deref()
-            .ok_or_else(
-                || Error::other(
-                    "Couldn't find bit rate!"
-                )
-            )?
-            .parse::<u32>()
-            .map_err(
-                |_| Error::other(
-                    "Couldn't parse bit rate!"
-                )
-            )
-    }
-
 }
 
 impl ProbeFormat {
-    pub(crate) fn filename(&self) -> &str {
-        &self.filename
-    }
-    
     pub(crate) fn format_name(&self) -> Result<&str, Error> {
         let name = &self
             .format_name
@@ -335,10 +272,9 @@ impl ProbeFormat {
         Ok(name.1)
     }
 
-    pub(crate) fn nb_streams(&self) -> u32 {
-        self.nb_streams
-    }
-    
+    // duration inside format is the better way to get the exact duration
+    // of the media cuz individual streams are completely optional and
+    // maybe missing
     pub(crate) fn duration_ms(&self) -> Result<u64, Error> {
         let duration_s: f64 = self
             .duration
@@ -384,29 +320,7 @@ impl ProbeFormat {
                 )
             )
     }
-
-    pub(crate) fn bit_rate(&self) -> Result<u32, Error> {
-        self
-            .bit_rate
-            .as_deref()
-            .ok_or_else(
-                || Error::other(
-                    "Couldn'd find bit rate!"
-                )
-            )?
-            .parse::<u32>()
-            .map_err(
-                |_| Error::other(
-                    "Couldn't parse the bit rate!"
-                )
-            )
-    }
 }
 
-impl ProbeTags {
-    pub(crate) fn language(&self) -> Option<&str> {
-        self
-            .language
-            .as_deref()
-    }
-}
+// impl ProbeTags {
+// }

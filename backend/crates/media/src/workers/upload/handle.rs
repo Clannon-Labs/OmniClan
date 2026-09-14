@@ -11,7 +11,6 @@ use axum::{
 
 use super::states::*;
 use super::error::*;
-use super::states::manifest::Manifest;
 
 #[derive(Debug)]
 pub(crate) struct UploadRequest {
@@ -26,11 +25,11 @@ pub(crate) struct UploadRequest {
  * 
  * We have multiple states (see ./states.rs),
  * and everytime we call the functions (eg: complete_upload(),
- * start_processing() etc), they give us another state.
+ * .process() etc), they give us the step next to them.
  * 
- * Like the .complete_upload() function from UploadingMedia 
- * gives us UploadedMedia, .start_processing() from UploadedMedia
- * gives use ProcessingMedia and so on.
+ * Like the .complete_upload() function from UploadMedia 
+ * gives us ProcessingMedia, .process() from ProcessingMedia
+ * gives use ReadyMedia and so on.
  */
 
 pub(crate) async fn handle_upload(
@@ -58,18 +57,6 @@ pub(crate) async fn handle_upload(
     
     // Now create a new UploadingMedia destination
     let upload = UploadMedia::new(&id).await?;    
-    // let uploading = match UploadingMedia::new(&id).await {
-    //     Ok(u) => u,
-    //     Err(e) => {
-    //         println!("[UPLOAD HANDLER]: Failed to create UploadingMedia! {}", e);
-    //         return Err(
-    //             UploadError::Io {
-    //                 source: e,
-    //                 path: None,
-    //             }
-    //         );
-    //     }
-    // };
 
     // Initialize media object with UploadingMedia state
     let mut media = Media {
@@ -78,10 +65,6 @@ pub(crate) async fn handle_upload(
         updated_at: now,
         state: MediaState::Upload(upload),
     };
-
-    // println!("[UPLOAD HANDLER]: Media: {:?}", media);
-    
-    // Manifest::write(&media).await?;
     
     // uploading was moved into Media's state, so extract 
     // uploading again
@@ -95,32 +78,15 @@ pub(crate) async fn handle_upload(
         .complete_upload(request.headers, request.body)
         .await?;
 
-    // println!("\n[UPLOAD]: Upload completed, processing: {:?}", processing);
-    
-    // let uploaded = match uploading
-    //     .complete_upload(request.headers, request.body)
-    //     .await {
-    //         Ok(u) => u,
-    //         Err(e) => {
-    //             println!("[UPLOAD HANDLER]: Error while completing upload: {}", e);
-    //             return Err(e);
-    //         }
-    //     };
-
     // Change the new state and the updated_time
     // And repeat the same for all states.
     media.state = MediaState::Processing(processing);
     media.updated_at = Utc::now();
 
-    Manifest::write(&media).await?;
-    // if let Err(e) = Manifest::write(&media).await {
-    //     println!("[UPLOAD HANDLER]: Failed to write 1st manifest: {}", e);
-    //     return Err(e);
-    // }
+    media.write_manifest().await?;
 
     // uploaded was moved into media.state, so extract
     // it again
-    
     let processing = match media.state {
         MediaState::Processing(processing) => processing,
         _ => unreachable!(),
@@ -130,37 +96,14 @@ pub(crate) async fn handle_upload(
     // There's just one struct in the processing state
     // and it's ProcessingMedia.
     // 
-    // The function in the UploadingMedia is called start_processing()
-    // because it takes the first step which later enables processing
-    // 
-    // And it's just changing the location of media from partial
-    // uploading location to processing location, but in future,
-    // we could add other checks too without breaking anything..
-    // 
-    // Until we take the same params, return same stuff and
-    //  change the directory properly.
-    // 
     let ready = processing.clone()
         .process(&processing.path())
         .await?;
-    // let processing = match uploaded
-    //     .start_processing(&media.id)
-    //     .await {
-    //         Ok(p) => p,
-    //         Err(e) => {
-    //             println!("[UPLOAD HANDLER]: Failed to start processing: {}", e);
-    //             return Err(e);
-    //         }
-    //     };
     
     media.state = MediaState::Ready(ready);
     media.updated_at = Utc::now();
 
-    Manifest::write(&media).await?;
-    // if let Err(e) = Manifest::write(&media).await {
-    //     println!("[UPLOAD HANDLER]: Error occured while writing 2nd manifest: {}", e);
-    //     return Err(e);
-    // }
+    media.write_manifest().await?;
     
     // Extract processing again cuz it was moved
     let ready = match media.state {
@@ -168,58 +111,17 @@ pub(crate) async fn handle_upload(
         _ => unreachable!(),
     };
 
-    // let ready = processing.clone()
-    //     .process(&processing.path())
-    //     .await?;
-    // let ready = match processing.clone()
-    //     .process(&processing.path())
-    //     .await {
-    //         Ok(r) => r,
-    //         Err(e) => {
-    //             println!("[UPLOAD HANDLER]: Error occured while processing media: {}", e);
-    //             return Err(e);
-    //         }
-    //     };
-
-    // media.state = MediaState::Ready(ready);
-    // media.updated_at = Utc::now();
-
-    // Manifest::write(&media).await?;
-    // if let Err(e) = Manifest::write(&media).await {
-    //     println!("[UPLOAD HANDLER]: Error occured while writing 3rd manifest: {}", e);
-    //     return Err(e);
-    // }
-    
-    // let ready = match media.state {
-    //     MediaState::Ready(ready) => ready,
-    //     _ => unreachable!(),
-    // };
-
     let finalized_media = ready
         .finalize(&media.id)
         .await?;
-    // let finalized_media = match ready
-    //     .finalize(&media.id)
-    //     .await {
-    //         Ok(f) => f,
-    //         Err(e) => {
-    //             println!("[UPLOAD HANDLER]: Error occured while finalizing media: {}", e);
-    //             return Err(e);
-    //         }
-    //     };
 
     media.state = MediaState::Final(finalized_media);
     media.updated_at = Utc::now();
 
-    Manifest::write(&media).await?;
+    media.write_manifest().await?;
 
     println!("[UPLOAD HANDLER]: Successfully processed the media!");
-    
-    // if let Err(e) = Manifest::write(&media).await {
-    //     println!("[UPLOAD HANDLER]: Error occured while writing 4th manifest: {}", e);
-    //     return Err(e);
-    // }
-    
+        
     let finalized_media = match media.state {
         MediaState::Final(finalized) => finalized,
         _ => unreachable!(),
