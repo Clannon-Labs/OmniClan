@@ -33,31 +33,11 @@ pub(crate) struct Manifest {
     pub(crate) error: Option<String>,
 }
 
-
-//
-// The result we got after we probed the original
-// media we had gotten.
-// For example, the video(and not the extracted audio)
-// if user had uploaded a video
-// 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde( rename_all = "snake_case" )]
-pub(crate) struct Source {
-    // The filename uploaded by user could
-    // be dangerous, so unless needed later,
-    // we dont have to use it
-    // pub(crate) filename: String,
-    pub(crate) path: PathBuf,
-    pub(crate) size_bytes: u64,
-    pub(crate) container: String,
-    pub(crate) media_type: Artifact,
-}
-
 impl Manifest {
     // Later change the UploadError to WriteError
-    pub(crate) async fn write(
+    pub(super) async fn write(
         media: &Media
-    ) -> Result<(), UploadError> {
+    ) -> Result<PathBuf, UploadError> {
 
         let manifest = Self {
             id: *media.id(),
@@ -93,7 +73,7 @@ impl Manifest {
             path.join("manifest.json")
         };
         
-        let mut file = match fs::File::create(filename)
+        let mut file = match fs::File::create(&filename)
             .await {
                 Ok(f) => f,
                 Err(e) => {
@@ -118,7 +98,7 @@ impl Manifest {
         // into the disk
         file.sync_all().await?;
         
-        Ok(())
+        Ok(filename)
     }
 }
 

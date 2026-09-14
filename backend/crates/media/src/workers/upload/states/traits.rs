@@ -1,16 +1,17 @@
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
 use super::*;
+use super::super::UploadError;
 
 pub(crate) trait MediaTrait {
     fn id(&self) -> &Uuid;
     fn created_at(&self) -> &DateTime<Utc>;
     fn updated_at(&self) -> &DateTime<Utc>;
     fn state(&self) -> &MediaState;
-
+    
     // Its results after we probed it
     // 
     // Currently I return video if both video
@@ -55,29 +56,10 @@ pub(crate) trait MediaTrait {
         }
     }
     
-    fn is_uploading(&self) -> bool {
-        matches!(self.state(), MediaState::Upload(_))
-    }
-    
-    // fn is_uploaded(&self) -> bool {
-    //     matches!(self.state(), MediaState::Uploaded(_))
-    // } 
-
-    // fn is_processing(&self) -> bool {
-    //     matches!(self.state(), MediaState::Processing(_))
+    // fn is_uploading(&self) -> bool {
+    //     matches!(self.state(), MediaState::Upload(_))
     // }
     
-    // fn is_ready(&self) -> bool {
-    //     matches!(self.state(), MediaState::Ready(_))
-    // }
-    
-    // fn is_final(&self) -> bool {
-    //     matches!(self.state(), MediaState::Final(_))
-    // }
-    
-    // fn is_failed(&self) -> bool {
-    //     matches!(self.state(), MediaState::Failed(_))
-    // }    
 }
 
 impl MediaTrait for Media {
@@ -102,6 +84,10 @@ impl Media {
     // Call the default path() method internally
     pub(crate) fn path(&self) -> &Path {
         <Self as MediaTrait>::path(&self)
+    }
+
+    pub(crate) async fn write_manifest(&self) -> Result<PathBuf, UploadError> {
+        Manifest::write(&self).await
     }
 
 }
