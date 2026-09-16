@@ -1,0 +1,42 @@
+
+use axum::{
+    Json,
+    response::IntoResponse,
+    http::{
+        HeaderMap,
+    },
+    body::Body,
+};
+
+use super::upload::{
+    handle_upload,
+
+    UploadRequest,
+};
+use super::WorkerError;
+
+pub(crate) async fn upload_worker(
+    headers: HeaderMap,
+    body: Body,
+) -> Result<impl IntoResponse, WorkerError> {
+    let media = match handle_upload(
+        UploadRequest {
+            headers,
+            body
+        }
+    ).await {
+        Ok(m) => m,
+        Err(e) => {
+            println!("[WORKER HANDLER]: An error occured while running upload handler! {}", e);
+            return Err(
+                WorkerError::Upload(e)
+            )
+        }
+    };
+
+    // Don't expose the whole FinalMedia's data
+    // But it's okay for until we make it work first
+    Ok(
+        Json(media)
+    )
+}

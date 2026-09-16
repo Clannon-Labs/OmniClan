@@ -8,5 +8,9 @@ tokio.workspace = true
 axum.workspace = true
 futures-util.workspace = true
 uuid.workspace = true
-# serde.workspace = true
-# serde_json.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+# anyhow is important but i think for now,
+# i can just use String and later replace wit my own error type
+# anyhow.workspace = true 

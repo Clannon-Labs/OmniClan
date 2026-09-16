@@ -1,14 +1,6 @@
 
 mod routes;
-mod upload;
-mod utils;
-pub mod constants;
-pub mod workers;
+mod workers;
+// mod error;
 
-pub use routes::media_routes;
-
-// Meaning of extensions of files
-/*  .part  = still receiving or incomplete
-    .ready = body completed, waiting to commit
-    .final = committed
-*/
+pub use routes::*;
