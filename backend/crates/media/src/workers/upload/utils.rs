@@ -42,16 +42,30 @@ pub(crate) async fn create_file(path: &Path) -> Result<tokio::fs::File, std::io:
 }
 
 pub(crate) async fn remove(path: &Path) -> Result<(), std::io::Error>{
-    match fs::remove_file(&path).await {
-        Ok(()) => Ok(()),
-        Err(_) => {
-            return Err(
-                std::io::Error::other(
-                    format!("Couldn't remove file '{path:?}'!")
+    if path.is_file() {
+        match fs::remove_file(&path).await {
+            Ok(()) => Ok(()),
+            Err(_) => {
+                return Err(
+                    std::io::Error::other(
+                        format!("Couldn't remove file '{path:?}'!")
+                    )
                 )
-            )
+            }
+        }
+    } else {
+        match fs::remove_dir_all(&path).await {
+            Ok(()) => Ok(()),
+            Err(_) => {
+                return Err(
+                    std::io::Error::other(
+                        format!("Couldn't remove directory '{path:?}'!")
+                    )
+                )
+            }
         }
     }
+    
 }
 
 // We have yet to add a check to ensure both paths have

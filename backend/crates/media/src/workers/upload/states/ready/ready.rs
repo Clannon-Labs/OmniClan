@@ -1,12 +1,4 @@
-// This latest code was written on a phone and isn't tested,
-// so there might be some mistakes/errors or bugs that need to be fixed.
-
-// Also the logic might be wrong here, I think the old manifest should just be 
-// deleted instead of moved because the manifest is gonna be created anyway in 
-// the final directory 
-
 use uuid::Uuid;
-use tokio::fs;
 
 use super::super::{
     ReadyMedia,
@@ -31,16 +23,22 @@ impl ReadyMedia {
       // the directory and move?
       // Because artifacts are very important and we
       // can't just "assume" anything about them.
+      // 
       // And we also gotta update their specific path.
-      // But if they succeded, we can "assume" that
-      // the directory might have manifest there.
+      // And we can safely remove that directory after the
+      // move has been completed.
        for artifact in &mut self.artifacts {
            let old_path = artifact.path();
 
-           let filename = match old_path.file_name() {
-                   Some(filename) => filename.display().to_string(),
-                   None => "unknown".to_string()
-            };
+           let filename = old_path.file_name()
+               .map(|f|
+                   f.display().to_string())
+               .ok_or( // Return error instead of trying with name unknown
+                   // which will never match because we haven't used unknown anywhere
+                   UploadError::InvalidState {
+                       reason: "Couldn't get the filename of the artifact!".to_string()
+                   }
+               )?;
            
            let new_path = destination_path
                .join(filename);
@@ -50,35 +48,7 @@ impl ReadyMedia {
            artifact.set_path(new_path);
        } 
 
-      // Now to get remaining files (just manifest.json for now)
-      let mut entries = fs::read_dir(&self.ready_path).await
-        .map_err(
-          |e| UploadError::Io {
-            source: e,
-            path: Some(&self.ready_path.clone())
-          }
-        );
-
-      while let Some(entry) = entries.next_entry().await
-        .map_err(
-          |e| UploadError::Io {
-            source: e,
-            path: Some(&self.ready_path.clone())
-          }
-        );
-      {
-        let current_path = entry.path();
-
-        if current_path.is_file() {
-          let filename = match current_path.file_name() {
-            Some(name) => name,
-            None => "manifest.json"
-          };
-
-          let new_path = destination_path.join(filename);
-          utils::rename(&current_path, &new_path).await?;
-        }
-      }
+      utils::remove(&self.ready_path).await?;
         
         Ok(
             FinalMedia {
