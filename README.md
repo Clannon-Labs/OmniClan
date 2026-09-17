@@ -2,6 +2,9 @@
 **OmniClan** is a platform for all kinds of learners/researchers.
 It allows you to be able to understand large amount of media without exploding your context window with all the bloat.
 
+> This project is currently stopped due to an obstacle in the development process
+> and will be continued if it gets resolved, if not, bye in advance :)
+
 ## What is it exactly (initially) ?
 It is a platform where you can upload your media (eg: video, audio, text, pdf etc) and be able
 to search for information in it, just like you do in **Google** except, here you will be googling your personal media instead of the open web.
